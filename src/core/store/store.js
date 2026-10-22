@@ -8,7 +8,18 @@ import {
 } from '../../data/defaultData.js';
 import { DEFAULT_CLASS_ID } from '../../config/constants.js';
 
-// Local storage fallback helpers
+// Clean out legacy demo/fake localStorage entries if any exist
+const legacyKeys = [
+  'apsacs_students_data',
+  'apsacs_gallery_data',
+  'apsacs_teachers_data',
+  'apsacs_superlatives_data',
+  'apsacs_memories_data'
+];
+legacyKeys.forEach(k => {
+  try { localStorage.removeItem(k); } catch {}
+});
+
 function getStored(key, fallback) {
   try {
     const raw = localStorage.getItem(key);
@@ -33,14 +44,14 @@ class Store {
       isAdmin: false,
       currentClassId: DEFAULT_CLASS_ID,
       classInfo: defaultClassInfo,
-      students: getStored('apsacs_students_data', defaultStudents),
-      gallery: getStored('apsacs_gallery_data', defaultGallery),
-      teachers: getStored('apsacs_teachers_data', defaultTeachers),
-      superlatives: getStored('apsacs_superlatives_data', defaultSuperlatives),
-      memories: getStored('apsacs_memories_data', defaultMemories),
+      students: getStored('schoolhub_students', defaultStudents),
+      gallery: getStored('schoolhub_gallery', defaultGallery),
+      teachers: getStored('schoolhub_teachers', defaultTeachers),
+      superlatives: getStored('schoolhub_superlatives', defaultSuperlatives),
+      memories: getStored('schoolhub_memories', defaultMemories),
       activeCategory: 'All',
       searchQuery: '',
-      currentStudentId: 'ali-hassan',
+      currentStudentId: null,
       activeScreen: 'home'
     };
     this.listeners = new Map();
@@ -53,7 +64,7 @@ class Store {
   set(key, value, persist = true) {
     this.state[key] = value;
     if (persist && ['students', 'gallery', 'teachers', 'superlatives', 'memories'].includes(key)) {
-      setStored(`apsacs_${key}_data`, value);
+      setStored(`schoolhub_${key}`, value);
     }
     this.notify(key, value);
   }
@@ -68,7 +79,6 @@ class Store {
       this.listeners.set(key, new Set());
     }
     this.listeners.get(key).add(callback);
-    // Return unsubscribe function
     return () => {
       const set = this.listeners.get(key);
       if (set) set.delete(callback);
@@ -86,7 +96,6 @@ class Store {
         }
       });
     }
-    // Also notify wildcard listeners
     const wildcard = this.listeners.get('*');
     if (wildcard) {
       wildcard.forEach(cb => cb(key, value, this.state));

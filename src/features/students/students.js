@@ -48,14 +48,25 @@ export function initStudents() {
   function updateDropdown() {
     if (!studentSelect) return;
     const students = store.get('students') || [];
+    if (students.length === 0) {
+      studentSelect.innerHTML = '<option value="">No profiles yet</option>';
+      studentSelect.disabled = true;
+      return;
+    }
+    studentSelect.disabled = false;
     studentSelect.innerHTML = students.map(s => 
       `<option value="${s.id}">Roll ${s.roll} — ${s.name}</option>`
     ).join('');
-    studentSelect.value = store.get('currentStudentId');
+    studentSelect.value = store.get('currentStudentId') || students[0].id;
   }
 
   function updateProfile(studentId) {
     const students = store.get('students') || [];
+    if (students.length === 0) {
+      store.set('currentStudentId', null, false);
+      renderProfileView(null);
+      return;
+    }
     const current = students.find(s => s.id === studentId) || students[0];
     if (current) {
       store.set('currentStudentId', current.id, false);

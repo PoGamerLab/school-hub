@@ -60,7 +60,7 @@ class AuthService {
       }
     } else {
       // Simulated sign-in for local development
-      const name = prompt('Local mode: Enter your name for student actions:', 'Ali Hassan') || 'Class Member';
+      const name = prompt('Enter your name for student actions:') || 'Class Member';
       const localUser = {
         uid: `local-${Date.now()}`,
         displayName: name,
