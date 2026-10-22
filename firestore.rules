@@ -2,9 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions
+    // --- HELPER FUNCTIONS ---
     function isSignedIn() {
-      return request.auth != null;
+      return request.auth != null && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
 
     function isOwner(uid) {
@@ -12,120 +12,246 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      // Replace with your Firebase admin UID or check token custom claims
-      return isSignedIn() && (
-        request.auth.token.email in ['admin@aps-skardu.edu.pk'] ||
-        request.auth.uid in ['ADMIN_FIREBASE_UID_HERE']
-      );
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
-    function getUserData() {
+    function getUser() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function isMemberOfClass(classId) {
-      return isSignedIn() && (getUserData().classId == classId || isAdmin());
-    }
-
     function isNotBanned() {
-      return isSignedIn() && (!('banned' in getUserData()) || getUserData().banned == false);
+      return isSignedIn() && (!('banned' in getUser()) || getUser().banned == false);
     }
 
-    // Users Collection
-    match /users/{userId} {
+    function isClassMember(classId) {
+      return isSignedIn() && isNotBanned() && (getUser().classId == classId || isAdmin());
+    }
+
+    function siteWritable() {
+      return !exists(/databases/$(database)/documents/siteConfig/status) ||
+             get(/databases/$(database)/documents/siteConfig/status).data.readOnly != true ||
+             isAdmin();
+    }
+
+    // --- 1. siteConfig (Public read, admin write) ---
+    match /siteConfig/{docId} {
       allow read: if true;
-      allow create: if isOwner(userId) && request.resource.data.keys().hasAll(['displayName', 'createdAt']);
-      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'points', 'banned'])) || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // --- 2. admins/{uid} (Console only writes) ---
+    match /admins/{uid} {
+      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
+      allow write: if false;
+    }
+
+    // --- 3. users/{uid} (Read locked strictly to owner and admin) ---
+    match /users/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create: if isOwner(uid) && siteWritable() &&
+        request.resource.data.keys().hasOnly(['displayName', 'photoURL', 'classId', 'role', 'points', 'banned', 'createdAt']) &&
+        request.resource.data.displayName is string && request.resource.data.displayName.size() <= 80 &&
+        request.resource.data.role == 'member' &&
+        request.resource.data.points == 0 &&
+        request.resource.data.banned == false &&
+        request.resource.data.classId == '' &&
+        request.resource.data.createdAt == request.time;
+      allow update: if isAdmin() || (
+        isOwner(uid) && isNotBanned() && siteWritable() &&
+        (
+          // Option A: Update profile info
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL']) &&
+           request.resource.data.displayName is string && request.resource.data.displayName.size() <= 80) ||
+          // Option B: First-time class join via validated joins doc
+          (resource.data.classId == '' &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['classId']) &&
+           request.resource.data.classId is string && request.resource.data.classId.size() <= 30 &&
+           exists(/databases/$(database)/documents/joins/$(request.auth.uid)) &&
+           get(/databases/$(database)/documents/joins/$(request.auth.uid)).data.classId == request.resource.data.classId)
+        )
+      );
       allow delete: if isAdmin();
     }
 
-    // Classes Collection
+    // --- 4. classes/{classId} (Proposals use doc ID = proposer UID) ---
     match /classes/{classId} {
       allow read: if true;
-      allow create: if isSignedIn() && isNotBanned();
-      allow update: if isSignedIn() && (
-        isAdmin() || 
-        // Allow adding current UID to supporterUids array
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supporterUids', 'memberCount'])
+      allow create: if isSignedIn() && isNotBanned() && siteWritable() &&
+        request.auth.uid == classId &&
+        request.resource.data.keys().hasOnly(['name', 'grade', 'section', 'status', 'createdBy', 'supporterUids', 'createdAt']) &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 50 &&
+        request.resource.data.grade is string && request.resource.data.grade.size() <= 20 &&
+        request.resource.data.section is string && request.resource.data.section.size() <= 10 &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.supporterUids == [request.auth.uid] &&
+        request.resource.data.createdAt == request.time;
+      allow update: if isAdmin() || (
+        isSignedIn() && isNotBanned() && siteWritable() &&
+        resource.data.status == 'pending' &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supporterUids']) &&
+        request.resource.data.supporterUids.size() == resource.data.supporterUids.size() + 1 &&
+        request.resource.data.supporterUids.hasAll(resource.data.supporterUids) &&
+        request.resource.data.supporterUids.hasAny([request.auth.uid]) &&
+        !resource.data.supporterUids.hasAny([request.auth.uid])
       );
-      allow delete: if isAdmin();
+      allow delete: if isAdmin() || (isSignedIn() && resource.data.createdBy == request.auth.uid && resource.data.status == 'pending');
     }
 
-    // Students Directory
-    match /students/{studentId} {
-      allow read: if true;
-      allow create: if isSignedIn() && isNotBanned() && 
-        request.resource.data.name.size() > 0 && 
-        request.resource.data.name.size() <= 80 &&
-        request.resource.data.bio.size() <= 500;
-      allow update: if (resource.data.ownerUid == request.auth.uid || isAdmin()) && isNotBanned();
-      allow delete: if (resource.data.ownerUid == request.auth.uid || isAdmin());
+    // --- 5. classSecrets/{classId} & joins/{uid} ---
+    match /classSecrets/{classId} {
+      allow read: if isClassMember(classId);
+      allow write: if isAdmin();
     }
 
-    // Faculty & Teachers Directory
-    match /teachers/{teacherId} {
-      allow read: if true;
-      allow write: if isSignedIn() && isNotBanned();
+    match /joins/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow create, update: if isOwner(uid) && isNotBanned() && siteWritable() &&
+        request.resource.data.keys().hasOnly(['classId', 'code', 'joinedAt']) &&
+        request.resource.data.classId is string && request.resource.data.classId.size() <= 30 &&
+        request.resource.data.code is string && request.resource.data.code.size() <= 30 &&
+        exists(/databases/$(database)/documents/classSecrets/$(request.resource.data.classId)) &&
+        get(/databases/$(database)/documents/classSecrets/$(request.resource.data.classId)).data.code == request.resource.data.code;
+      allow delete: if isOwner(uid) || isAdmin();
     }
 
-    // Campus Photo Gallery
-    match /gallery/{photoId} {
+    // --- 6. students/{uid} (1 profile per account, gradientIndex 0..7, privacy rules) ---
+    match /students/{uid} {
       allow read: if true;
-      allow create: if isSignedIn() && isNotBanned() && request.resource.data.caption.size() <= 140;
-      allow update, delete: if isAdmin();
+      allow create: if isOwner(uid) && isClassMember(request.resource.data.classId) && siteWritable() &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.keys().hasOnly([
+          'name', 'roll', 'category', 'tags', 'bio', 'favSubject', 'favQuote', 'funFact',
+          'gradientIndex', 'initials', 'classId', 'ownerUid', 'showBirthday', 'showContact',
+          'birthday', 'contact', 'createdAt'
+        ]) &&
+        request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
+        request.resource.data.roll is string && request.resource.data.roll.size() <= 10 &&
+        request.resource.data.category in ['Sports', 'Music', 'Coding', 'Art'] &&
+        request.resource.data.tags is string && request.resource.data.tags.size() <= 100 &&
+        request.resource.data.bio is string && request.resource.data.bio.size() <= 500 &&
+        request.resource.data.favSubject is string && request.resource.data.favSubject.size() <= 60 &&
+        request.resource.data.favQuote is string && request.resource.data.favQuote.size() <= 200 &&
+        request.resource.data.funFact is string && request.resource.data.funFact.size() <= 200 &&
+        request.resource.data.gradientIndex is int && request.resource.data.gradientIndex >= 0 && request.resource.data.gradientIndex <= 7 &&
+        request.resource.data.initials is string && request.resource.data.initials.size() <= 4 &&
+        request.resource.data.showBirthday is bool &&
+        request.resource.data.showContact is bool &&
+        (!('birthday' in request.resource.data) || (request.resource.data.showBirthday == true && request.resource.data.birthday is string && request.resource.data.birthday.size() <= 30)) &&
+        (!('contact' in request.resource.data) || (request.resource.data.showContact == true && request.resource.data.contact is string && request.resource.data.contact.size() <= 60)) &&
+        request.resource.data.createdAt == request.time;
+
+      allow update: if (resource.data.ownerUid == request.auth.uid || isAdmin()) && isNotBanned() && siteWritable() &&
+        request.resource.data.ownerUid == resource.data.ownerUid &&
+        request.resource.data.classId == resource.data.classId &&
+        request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
+        request.resource.data.bio is string && request.resource.data.bio.size() <= 500 &&
+        (!('birthday' in request.resource.data) || (request.resource.data.showBirthday == true && request.resource.data.birthday is string && request.resource.data.birthday.size() <= 30)) &&
+        (!('contact' in request.resource.data) || (request.resource.data.showContact == true && request.resource.data.contact is string && request.resource.data.contact.size() <= 60));
+
+      allow delete: if resource.data.ownerUid == request.auth.uid || isAdmin();
     }
 
-    // Memory Wall
-    match /memories/{memoryId} {
+    // --- 7. memories/{id} (Short code reactions, un-react, un-report, allowed keys) ---
+    match /memories/{id} {
       allow read: if true;
-      allow create: if isSignedIn() && isNotBanned() && 
-        request.resource.data.quote.size() > 0 && 
-        request.resource.data.quote.size() <= 300;
-      allow update: if isSignedIn() && (
-        // Allow reacting or reporting
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions', 'reportUids', 'hidden']) ||
-        resource.data.authorUid == request.auth.uid ||
-        isAdmin()
+      allow create: if isSignedIn() && isClassMember(request.resource.data.classId) && siteWritable() &&
+        request.resource.data.keys().hasOnly(['classId', 'authorUid', 'quote', 'author', 'context', 'reactions', 'reports', 'createdAt']) &&
+        request.resource.data.authorUid == request.auth.uid &&
+        request.resource.data.quote is string && request.resource.data.quote.size() > 0 && request.resource.data.quote.size() <= 300 &&
+        request.resource.data.author is string && request.resource.data.author.size() <= 80 &&
+        request.resource.data.context is string && request.resource.data.context.size() <= 120 &&
+        request.resource.data.reactions == {} &&
+        request.resource.data.reports == {} &&
+        request.resource.data.createdAt == request.time;
+
+      allow update: if isAdmin() || (
+        isSignedIn() && isClassMember(resource.data.classId) && siteWritable() && (
+          // A: Author edit
+          (resource.data.authorUid == request.auth.uid &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['quote', 'author', 'context']) &&
+           request.resource.data.quote is string && request.resource.data.quote.size() > 0 && request.resource.data.quote.size() <= 300 &&
+           request.resource.data.author is string && request.resource.data.author.size() <= 80 &&
+           request.resource.data.context is string && request.resource.data.context.size() <= 120) ||
+          // B: React (set short code or delete own key)
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']) &&
+           request.resource.data.reactions.diff(resource.data.reactions).affectedKeys().hasOnly([request.auth.uid]) &&
+           (request.resource.data.reactions[request.auth.uid] in ['laugh', 'heart', 'fire'] ||
+            !request.resource.data.reactions.keys().hasAny([request.auth.uid]))) ||
+          // C: Report (add own key: true)
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reports']) &&
+           request.resource.data.reports.diff(resource.data.reports).affectedKeys().hasOnly([request.auth.uid]) &&
+           request.resource.data.reports[request.auth.uid] == true)
+        )
       );
-      allow delete: if (resource.data.authorUid == request.auth.uid || isAdmin());
+
+      allow delete: if resource.data.authorUid == request.auth.uid || isAdmin();
     }
 
-    // Superlatives
-    match /superlatives/{superlativeId} {
+    // --- 8. superlatives/{id} (Vote and Un-vote support, allowed keys) ---
+    match /superlatives/{id} {
       allow read: if true;
-      allow create: if isSignedIn() && isNotBanned();
-      allow update: if isSignedIn() && (
-        // Only allow a user to set or remove their own vote in the votes map
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']) ||
-        isAdmin()
+      allow create: if isSignedIn() && isClassMember(request.resource.data.classId) && siteWritable() &&
+        request.resource.data.keys().hasOnly(['classId', 'createdBy', 'title', 'icon', 'nominees', 'votes', 'closesAt', 'createdAt']) &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.title is string && request.resource.data.title.size() <= 80 &&
+        request.resource.data.icon is string && request.resource.data.icon.size() <= 10 &&
+        request.resource.data.nominees is list && request.resource.data.nominees.size() >= 2 && request.resource.data.nominees.size() <= 10 &&
+        request.resource.data.votes == {} &&
+        request.resource.data.createdAt == request.time;
+
+      allow update: if isAdmin() || (
+        isSignedIn() && isClassMember(resource.data.classId) && siteWritable() &&
+        // Vote or Un-vote: only own UID key in votes map changes
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']) &&
+        request.resource.data.votes.diff(resource.data.votes).affectedKeys().hasOnly([request.auth.uid]) &&
+        (!('closesAt' in resource.data) || request.time < resource.data.closesAt) &&
+        (
+          resource.data.nominees.hasAny([request.resource.data.votes[request.auth.uid]]) ||
+          !request.resource.data.votes.keys().hasAny([request.auth.uid])
+        )
       );
-      allow delete: if isAdmin();
+
+      allow delete: if resource.data.createdBy == request.auth.uid || isAdmin();
     }
 
-    // Polls
-    match /polls/{pollId} {
+    // --- 9. teachers/{id} (Allowed keys, ownerUid, limits) ---
+    match /teachers/{id} {
       allow read: if true;
-      allow create: if isSignedIn() && isNotBanned();
-      allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']);
-      allow delete: if isAdmin();
+      allow create: if isSignedIn() && isClassMember(request.resource.data.classId) && siteWritable() &&
+        request.resource.data.keys().hasOnly(['classId', 'ownerUid', 'name', 'subject', 'room', 'qualification', 'img', 'initials', 'createdAt']) &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.name is string && request.resource.data.name.size() <= 80 &&
+        request.resource.data.subject is string && request.resource.data.subject.size() <= 80 &&
+        request.resource.data.room is string && request.resource.data.room.size() <= 50 &&
+        request.resource.data.qualification is string && request.resource.data.qualification.size() <= 100 &&
+        request.resource.data.createdAt == request.time;
+
+      allow update: if (resource.data.ownerUid == request.auth.uid || isAdmin()) && isNotBanned() && siteWritable() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['name', 'subject', 'room', 'qualification', 'img']) &&
+        request.resource.data.name.size() <= 80;
+
+      allow delete: if resource.data.ownerUid == request.auth.uid || isAdmin();
     }
 
-    // Homework & Timetable
-    match /homework/{homeworkId} {
+    // --- 10. gallery/{id} (Allowed keys, caption <= 140, url <= 500 & https://) ---
+    match /gallery/{id} {
       allow read: if true;
-      allow write: if isSignedIn() && isNotBanned();
+      allow create: if isSignedIn() && isClassMember(request.resource.data.classId) && siteWritable() &&
+        request.resource.data.keys().hasOnly(['classId', 'ownerUid', 'caption', 'url', 'createdAt']) &&
+        request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.caption is string && request.resource.data.caption.size() <= 140 &&
+        request.resource.data.url is string && request.resource.data.url.size() <= 500 &&
+        request.resource.data.url.matches('^https://.+') &&
+        request.resource.data.createdAt == request.time;
+
+      allow update: if isAdmin();
+      allow delete: if resource.data.ownerUid == request.auth.uid || isAdmin();
     }
 
-    match /timetable/{classId} {
-      allow read: if true;
-      allow write: if isSignedIn() && isNotBanned();
-    }
-
-    // Reports collection
-    match /reports/{reportId} {
-      allow read: if isAdmin();
-      allow create: if isSignedIn() && isNotBanned();
-      allow update, delete: if isAdmin();
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

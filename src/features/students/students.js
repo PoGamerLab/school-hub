@@ -1,8 +1,12 @@
 import { store } from '../../core/store/store.js';
 import { router } from '../../core/router/router.js';
+import { authService } from '../../core/auth/auth.js';
 import { renderStudentCard, renderProfileView } from './students.render.js';
-import { extractInitials, getRandomGradient, generateId } from '../../core/utils/ids.js';
+import { extractInitials } from '../../core/utils/ids.js';
 import { showToast } from '../../components/toast/toast.js';
+import { subscribeClassCollection, createDocument } from '../../core/db/firestore.js';
+
+let unsubscribeStudents = null;
 
 export function initStudents() {
   const gridContainer = document.querySelector('.grid');
@@ -16,13 +20,13 @@ export function initStudents() {
   function getFilteredStudents() {
     const students = store.get('students') || [];
     const activeCategory = store.get('activeCategory');
-    const searchQuery = store.get('searchQuery').toLowerCase();
+    const searchQuery = (store.get('searchQuery') || '').toLowerCase();
 
     return students.filter(student => {
-      const matchesCategory = (activeCategory === 'All' || student.category.toLowerCase() === activeCategory.toLowerCase());
-      const matchesSearch = student.name.toLowerCase().includes(searchQuery) ||
-                            student.tags.toLowerCase().includes(searchQuery) ||
-                            student.roll.toString().includes(searchQuery);
+      const matchesCategory = (activeCategory === 'All' || (student.category && student.category.toLowerCase() === activeCategory.toLowerCase()));
+      const matchesSearch = (student.name && student.name.toLowerCase().includes(searchQuery)) ||
+                            (student.tags && student.tags.toLowerCase().includes(searchQuery)) ||
+                            (student.roll && student.roll.toString().includes(searchQuery));
       return matchesCategory && matchesSearch;
     });
   }
@@ -33,7 +37,7 @@ export function initStudents() {
 
     if (list.length === 0) {
       gridContainer.innerHTML = `
-        <div class="empty-state">
+        <div class="empty-state full-width-empty">
           <div class="empty-state-icon">🔍</div>
           <div class="empty-state-title">No Classmates Found</div>
           <div class="empty-state-desc">Try clearing the search box or selecting "All" categories.</div>
@@ -55,9 +59,9 @@ export function initStudents() {
     }
     studentSelect.disabled = false;
     studentSelect.innerHTML = students.map(s => 
-      `<option value="${s.id}">Roll ${s.roll} — ${s.name}</option>`
+      `<option value="${s.id || s.uid}">Roll ${s.roll} — ${s.name}</option>`
     ).join('');
-    studentSelect.value = store.get('currentStudentId') || students[0].id;
+    studentSelect.value = store.get('currentStudentId') || (students[0].id || students[0].uid);
   }
 
   function updateProfile(studentId) {
@@ -67,10 +71,11 @@ export function initStudents() {
       renderProfileView(null);
       return;
     }
-    const current = students.find(s => s.id === studentId) || students[0];
+    const current = students.find(s => (s.id || s.uid) === studentId) || students[0];
     if (current) {
-      store.set('currentStudentId', current.id, false);
-      if (studentSelect) studentSelect.value = current.id;
+      const id = current.id || current.uid;
+      store.set('currentStudentId', id, false);
+      if (studentSelect) studentSelect.value = id;
       renderProfileView(current);
     }
   }
@@ -116,8 +121,14 @@ export function initStudents() {
 
   // Handle Form Submission
   if (addStudentForm) {
-    addStudentForm.addEventListener('submit', (e) => {
+    addStudentForm.addEventListener('submit', async (e) => {
       e.preventDefault();
+      const user = authService.getCurrentUser();
+      if (!user) {
+        showToast('Please sign in with Google to create your student profile.', 'error');
+        return;
+      }
+
       const name = document.getElementById('student-name').value.trim();
       const roll = document.getElementById('student-roll').value.trim();
       const category = document.getElementById('student-category').value;
@@ -132,49 +143,63 @@ export function initStudents() {
       const showBirthday = document.getElementById('student-show-birthday')?.checked ?? false;
       const showContact = document.getElementById('student-show-contact')?.checked ?? false;
 
-      const newStudent = {
-        id: generateId('std'),
-        classId: store.get('currentClassId'),
+      // Construct compliant document payload
+      const payload = {
+        classId: store.get('currentClassId') || '10-b',
+        ownerUid: user.uid,
         name,
-        initials: extractInitials(name),
         roll,
-        role: `GRADE 10 · SECTION B · ROLL NO. ${roll}`,
         category,
         tags,
-        gradient: getRandomGradient(),
         bio,
         favSubject,
-        hobbies: tags,
         favQuote: favQuote ? (favQuote.startsWith('"') ? favQuote : `"${favQuote}"`) : '',
-        birthday,
-        showBirthday,
         funFact,
-        contact,
+        gradientIndex: Math.floor(Math.random() * 8),
+        initials: extractInitials(name),
+        showBirthday,
         showContact
       };
 
-      store.update('students', list => [newStudent, ...list]);
-      addStudentForm.reset();
-      if (addStudentModal) addStudentModal.classList.remove('active');
+      // Strict privacy rule enforcement: only include birthday/contact if show is true
+      if (showBirthday && birthday) {
+        payload.birthday = birthday;
+      }
+      if (showContact && contact) {
+        payload.contact = contact;
+      }
 
-      showToast(`Profile created for ${name}!`, 'success');
-      router.navigate('profile', { id: newStudent.id });
+      try {
+        await createDocument('students', payload, user.uid);
+        addStudentForm.reset();
+        if (addStudentModal) addStudentModal.classList.remove('active');
+        showToast(`Profile published for ${name}!`, 'success');
+        router.navigate('profile', { id: user.uid });
+      } catch (err) {
+        console.error('Failed to publish profile:', err);
+        showToast(`Error: ${err.message}`, 'error');
+      }
     });
   }
 
-  // Subscribe to store updates
-  store.subscribe('students', () => {
-    updateDropdown();
-    renderGrid();
-    updateProfile(store.get('currentStudentId'));
+  // Subscribe to students in current class
+  function attachSubscription() {
+    const classId = store.get('currentClassId') || '10-b';
+    subscribeClassCollection('students', classId, (list) => {
+      store.set('students', list, false);
+      renderGrid();
+      updateDropdown();
+      updateProfile(store.get('currentStudentId'));
+    });
+  }
+
+  store.subscribe('currentClassId', () => {
+    attachSubscription();
   });
 
   store.subscribe('currentStudentId', (id) => {
     updateProfile(id);
   });
 
-  // Initial render
-  updateDropdown();
-  renderGrid();
-  updateProfile(store.get('currentStudentId'));
+  attachSubscription();
 }

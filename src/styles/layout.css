@@ -7,6 +7,78 @@
   display: block;
 }
 
+/* Application Error / Status Banner */
+.error-banner {
+  padding: 12px 24px;
+  font-size: 13.5px;
+  font-weight: 500;
+  text-align: center;
+  position: relative;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.error-banner.hidden {
+  display: none !important;
+}
+
+.banner-warning {
+  background: var(--paper-dim);
+  color: var(--pine-deep);
+  border-bottom: 1px solid var(--gold);
+}
+
+.banner-error {
+  background: var(--red);
+  color: #fff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.2);
+}
+
+.hidden-admin {
+  display: none !important;
+}
+
+.hidden-auth {
+  display: none !important;
+}
+
+.full-width-empty {
+  grid-column: 1 / -1;
+  width: 100%;
+}
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  cursor: pointer;
+  font-weight: normal;
+  text-transform: none;
+  font-size: 12px;
+  color: var(--ink);
+}
+
+.checkbox-input {
+  width: auto !important;
+  cursor: pointer;
+}
+
+.system-status-note {
+  font-size: 14px;
+  color: #576057;
+  margin-bottom: 12px;
+}
+
+.system-node-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  color: var(--emerald);
+}
+
 /* Hero Section */
 .hero {
   position: relative;

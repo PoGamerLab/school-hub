@@ -31,6 +31,9 @@
 </head>
 <body>
 
+  <!-- Live Application Error / Status Banner -->
+  <div id="app-error-banner" class="error-banner hidden"></div>
+
   <!-- Top Navigation Bar -->
   <nav class="topnav">
     <div class="brand" onclick="window.location.hash='#home'">
@@ -49,7 +52,7 @@
       <button data-screen="school">About School</button>
       <button data-screen="superlatives">Superlatives</button>
       <button data-screen="memories">Memory Wall</button>
-      <button data-screen="admin" class="admin-nav-item" style="display:none;">Admin</button>
+      <button data-screen="admin" class="admin-nav-item hidden-admin">Admin</button>
     </div>
 
     <!-- Auth Widget -->
@@ -81,6 +84,13 @@
         <span class="tag mono">SESSION 2025&ndash;26</span>
       </div>
       <div id="class-banner-container"></div>
+
+      <div class="section-actions" style="margin-top:24px;">
+        <button class="btn btn-outline btn-sm auth-required" id="open-join-class-btn">Join Class via Code</button>
+        <button class="btn btn-primary btn-sm auth-required" id="open-propose-class-btn">+ Propose New Class</button>
+      </div>
+
+      <div id="class-proposals-container"></div>
     </section>
   </div>
 
@@ -115,7 +125,8 @@
       <div class="submit-band">
         <h3>Not on the list yet?</h3>
         <p>Every student in the class can add their own profile &mdash; photo, bio, and a few fun facts &mdash; in under two minutes.</p>
-        <button class="btn btn-primary" id="open-add-student-btn">Add my profile &rarr;</button>
+        <button class="btn btn-primary auth-required" id="open-add-student-btn">Add my profile &rarr;</button>
+        <div class="anon-prompt">Sign in with Google in the top bar to add your student profile.</div>
       </div>
     </section>
   </div>
@@ -153,8 +164,8 @@
           <p class="section-head-subtitle">APSACS Secretariat Network &middot; Affiliated with FBISE Islamabad &middot; Skardu, Gilgit-Baltistan</p>
         </div>
         <div class="section-actions">
-          <button class="btn btn-primary btn-sm" id="open-add-photo-btn">+ Add Picture</button>
-          <button class="btn btn-outline btn-sm" id="open-add-teacher-btn">+ Add Teacher</button>
+          <button class="btn btn-primary btn-sm auth-required" id="open-add-photo-btn">+ Add Picture</button>
+          <button class="btn btn-outline btn-sm auth-required" id="open-add-teacher-btn">+ Add Teacher</button>
         </div>
       </div>
 
@@ -210,7 +221,7 @@
           <h2>Class superlatives</h2>
           <p class="section-head-subtitle">Voted on by the class &middot; not official, just honest</p>
         </div>
-        <button class="btn btn-primary btn-sm" id="open-add-superlative-btn">+ Add Superlative</button>
+        <button class="btn btn-primary btn-sm auth-required" id="open-add-superlative-btn">+ Add Superlative</button>
       </div>
       <div class="superlatives-grid" id="superlatives-container"></div>
     </section>
@@ -224,7 +235,7 @@
           <h2>Memory wall</h2>
           <p class="section-head-subtitle">Things actually said in class &middot; screenshot-worthy moments</p>
         </div>
-        <button class="btn btn-primary btn-sm" id="open-add-memory-btn">+ Add Memory</button>
+        <button class="btn btn-primary btn-sm auth-required" id="open-add-memory-btn">+ Add Memory</button>
       </div>
       <div class="memory-grid" id="memories-container"></div>
     </section>
@@ -249,8 +260,8 @@
 
       <div class="admin-card">
         <h3>System Status</h3>
-        <p style="font-size:14px; color:#576057; margin-bottom:12px;">School Hub is running in synchronized client state with Firestore security rules enforcement.</p>
-        <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--emerald);">
+        <p class="system-status-note">School Hub is running in synchronized client state with Firestore security rules enforcement.</p>
+        <div class="system-node-tag">
           Active Class: 10-B &middot; Session: 2025-26 &middot; Node: APSACS Skardu
         </div>
       </div>
@@ -299,9 +310,9 @@
           </div>
           <div class="form-group form-col">
             <label for="student-birthday">Birthday <span class="privacy-badge">Optional</span></label>
-            <input type="text" id="student-birthday" placeholder="e.g. 14 March" maxlength="40">
-            <label style="display:flex; align-items:center; gap:6px; margin-top:6px; font-weight:normal; text-transform:none; font-size:12px; cursor:pointer;">
-              <input type="checkbox" id="student-show-birthday" style="width:auto;"> Show birthday on profile
+            <input type="text" id="student-birthday" placeholder="e.g. 14 March" maxlength="30">
+            <label class="checkbox-row">
+              <input type="checkbox" id="student-show-birthday" class="checkbox-input"> Show birthday on profile
             </label>
           </div>
         </div>
@@ -317,8 +328,8 @@
           <div class="form-group form-col">
             <label for="student-contact">Contact Handle <span class="privacy-badge">Optional</span></label>
             <input type="text" id="student-contact" placeholder="e.g. Instagram @tariq.m" maxlength="60">
-            <label style="display:flex; align-items:center; gap:6px; margin-top:6px; font-weight:normal; text-transform:none; font-size:12px; cursor:pointer;">
-              <input type="checkbox" id="student-show-contact" style="width:auto;"> Show contact publicly
+            <label class="checkbox-row">
+              <input type="checkbox" id="student-show-contact" class="checkbox-input"> Show contact publicly
             </label>
           </div>
         </div>
@@ -337,11 +348,11 @@
       <form id="add-photo-form">
         <div class="form-group">
           <label for="photo-title">Caption / Title</label>
-          <input type="text" id="photo-title" placeholder="e.g. Annual Sports Day Opening Ceremony" required maxlength="120">
+          <input type="text" id="photo-title" placeholder="e.g. Annual Sports Day Opening Ceremony" required maxlength="140">
         </div>
         <div class="form-group">
-          <label for="photo-url">Image URL or File Path</label>
-          <input type="text" id="photo-url" placeholder="images/apsacs-logo.png or image URL" required>
+          <label for="photo-url">Image URL (must start with https://)</label>
+          <input type="url" id="photo-url" placeholder="https://example.com/photo.jpg" required maxlength="500">
         </div>
         <button type="submit" class="btn btn-primary btn-full">Add to Gallery</button>
       </form>
@@ -373,8 +384,8 @@
           <input type="text" id="teacher-qual" placeholder="e.g. M.Sc. Physics &middot; Senior Educator" required maxlength="100">
         </div>
         <div class="form-group">
-          <label for="teacher-img">Photo URL (Optional)</label>
-          <input type="text" id="teacher-img" placeholder="images/apsacs-logo.png or image URL">
+          <label for="teacher-img">Photo URL (Optional, https://)</label>
+          <input type="url" id="teacher-img" placeholder="https://example.com/teacher.jpg" maxlength="500">
         </div>
         <button type="submit" class="btn btn-primary btn-full">Add Teacher</button>
       </form>
@@ -398,14 +409,10 @@
           <input type="text" id="superlative-title" placeholder="e.g. Most Likely to Be Late" required maxlength="80">
         </div>
         <div class="form-group">
-          <label for="superlative-winner">Winner</label>
-          <input type="text" id="superlative-winner" placeholder="e.g. Student Name" required maxlength="80">
+          <label for="superlative-nominees">Nominees (at least 2, comma-separated)</label>
+          <input type="text" id="superlative-nominees" placeholder="e.g. Ali Hassan, Hamza Wali, Sana Karim" required maxlength="120">
         </div>
-        <div class="form-group">
-          <label for="superlative-reason">Why (optional, keep it kind)</label>
-          <input type="text" id="superlative-reason" placeholder="e.g. Chess strategy over punctuality, apparently." maxlength="140">
-        </div>
-        <button type="submit" class="btn btn-primary btn-full">Add Superlative</button>
+        <button type="submit" class="btn btn-primary btn-full">Add Superlative for Voting</button>
       </form>
     </div>
   </div>
@@ -424,20 +431,69 @@
         </div>
         <div class="form-group">
           <label for="memory-author">Who said it</label>
-          <input type="text" id="memory-author" placeholder="e.g. Student Name" required maxlength="60">
+          <input type="text" id="memory-author" placeholder="e.g. Student Name" required maxlength="80">
         </div>
         <div class="form-group">
           <label for="memory-context">Context (optional)</label>
-          <input type="text" id="memory-context" placeholder="e.g. During Computer Science period" maxlength="80">
+          <input type="text" id="memory-context" placeholder="e.g. During Computer Science period" maxlength="120">
         </div>
         <button type="submit" class="btn btn-primary btn-full">Add to Wall</button>
       </form>
     </div>
   </div>
 
+  <!-- Modal for Proposing Class -->
+  <div class="modal-overlay" id="propose-class-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Propose a New Class</h3>
+        <button class="modal-close" id="close-propose-class-modal">&times;</button>
+      </div>
+      <form id="propose-class-form">
+        <div class="form-group">
+          <label for="propose-class-name">Class Display Name</label>
+          <input type="text" id="propose-class-name" placeholder="e.g. Grade 10 — Section A" required maxlength="50">
+        </div>
+        <div class="form-row">
+          <div class="form-group form-col">
+            <label for="propose-class-grade">Grade</label>
+            <input type="text" id="propose-class-grade" placeholder="e.g. Grade 10" required maxlength="20">
+          </div>
+          <div class="form-group form-col">
+            <label for="propose-class-section">Section</label>
+            <input type="text" id="propose-class-section" placeholder="e.g. Section A" required maxlength="10">
+          </div>
+        </div>
+        <p class="form-help">After proposing, you will need 4 other classmates to click "Support" before the administrator activates the class.</p>
+        <button type="submit" class="btn btn-primary btn-full">Submit Proposal</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal for Joining Class -->
+  <div class="modal-overlay" id="join-class-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Join Class via Secret Code</h3>
+        <button class="modal-close" id="close-join-class-modal">&times;</button>
+      </div>
+      <form id="join-class-form">
+        <div class="form-group">
+          <label for="join-class-id">Class ID</label>
+          <input type="text" id="join-class-id" placeholder="e.g. 10-b" required maxlength="30">
+        </div>
+        <div class="form-group">
+          <label for="join-class-code">Invite Code</label>
+          <input type="text" id="join-class-code" placeholder="Enter the secret invite code" required maxlength="30">
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Join Class</button>
+      </form>
+    </div>
+  </div>
+
   <footer>APSACS Skardu &mdash; Army Public School &amp; College &middot; "I Shall Rise &amp; Shine" &middot; Phone: 05831-50248 &middot; FBISE Islamabad Affiliated</footer>
 
-  <!-- App Script (Works everywhere: desktop file:// and web servers) -->
-  <script src="js/app.js" defer></script>
+  <!-- App Modular Entry Point -->
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>

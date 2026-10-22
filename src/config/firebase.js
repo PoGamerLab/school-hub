@@ -1,6 +1,5 @@
 /**
  * Firebase Initialization & Modular Service Wrapper
- * Supports Firebase v10/v11 ESM with graceful local fallback if credentials are unset.
  */
 
 // Paste your Firebase Web App credentials from console.firebase.google.com here:
@@ -18,36 +17,55 @@ let auth = null;
 let db = null;
 let isConfigured = false;
 
-// Check if credentials have been replaced with real project keys
-if (firebaseConfig.apiKey && !firebaseConfig.apiKey.includes('YOUR_API_KEY')) {
+export function isFirebaseConfigured() {
+  return isConfigured;
+}
+
+export function showAppError(message, isWarning = false) {
+  const banner = document.getElementById('app-error-banner');
+  if (banner) {
+    banner.textContent = message;
+    banner.classList.remove('hidden');
+    banner.className = isWarning ? 'error-banner banner-warning' : 'error-banner banner-error';
+  } else {
+    console.warn('[SchoolHub Error Banner]', message);
+  }
+}
+
+export function hideAppError() {
+  const banner = document.getElementById('app-error-banner');
+  if (banner) banner.classList.add('hidden');
+}
+
+export async function initFirebase() {
+  if (isConfigured && app) return { app, auth, db };
+
+  // Check if placeholder API key is still present
+  if (!firebaseConfig.apiKey || firebaseConfig.apiKey.includes('YOUR_API_KEY')) {
+    console.info('[SchoolHub] Firebase credentials unset. Running in preview/local mode.');
+    showAppError('Preview Mode: Firebase is unconfigured. Real-time multi-user syncing is paused until project keys are set in src/config/firebase.js', true);
+    return null;
+  }
+
   try {
     const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js');
-    const { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
-    const { 
-      getFirestore, 
-      collection, 
-      doc, 
-      onSnapshot, 
-      addDoc, 
-      setDoc, 
-      updateDoc, 
-      deleteDoc, 
-      query, 
-      where 
-    } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
+    const { getFirestore } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
 
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     db = getFirestore(app);
     isConfigured = true;
 
+    hideAppError();
     console.log('[SchoolHub] Firebase successfully connected.');
+    return { app, auth, db };
   } catch (err) {
-    console.warn('[SchoolHub] Firebase initialization skipped or failed:', err);
+    console.error('[SchoolHub] Firebase connection failed:', err);
+    showAppError(`Firebase connection error: ${err.message || 'Unable to connect to cloud database.'}`);
     isConfigured = false;
+    return null;
   }
-} else {
-  console.info('[SchoolHub] Running in Local Mode. Add your Firebase keys in src/config/firebase.js to sync live across devices.');
 }
 
 export { app, auth, db, isConfigured };

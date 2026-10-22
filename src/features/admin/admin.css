@@ -37,6 +37,23 @@
   border-bottom: none;
 }
 
+.admin-item-quote {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.admin-item-meta {
+  font-size: 12px;
+  color: #6b7268;
+  margin-top: 4px;
+}
+
+.admin-empty-notice {
+  font-size: 13.5px;
+  color: #6b7268;
+  padding: 12px 0;
+}
+
 .admin-actions {
   display: flex;
   gap: 8px;

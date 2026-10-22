@@ -11,8 +11,8 @@ import { initSuperlatives } from './features/superlatives/superlatives.js';
 import { initMemories } from './features/memories/memories.js';
 import { initAdmin } from './features/admin/admin.js';
 
-document.addEventListener('DOMContentLoaded', async () => {
-  // 1. Initialize Auth
+async function boot() {
+  // 1. Initialize Auth Lifecycle
   await authService.init();
 
   // 2. Initialize Top Navbar
@@ -24,6 +24,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   initModal('add-teacher-modal', 'open-add-teacher-btn', 'close-teacher-modal');
   initModal('add-superlative-modal', 'open-add-superlative-btn', 'close-superlative-modal');
   initModal('add-memory-modal', 'open-add-memory-btn', 'close-memory-modal');
+  initModal('propose-class-modal', 'open-propose-class-btn', 'close-propose-class-modal');
+  initModal('join-class-modal', 'open-join-class-btn', 'close-join-class-modal');
 
   // 4. Initialize Features
   initClasses();
@@ -47,4 +49,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   console.log('[SchoolHub] Modular application successfully booted.');
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', boot);
+} else {
+  boot();
+}

@@ -6,16 +6,16 @@ A modular, secure, and shared web portal for Army Public School & College System
 
 - **7 Dedicated Screens**:
   - `Home`: Welcome banner, motto *"I Shall Rise & Shine"*, and quick links.
-  - `Class`: Session 2025–26 Grade 10-B details, class teacher, and curriculum track.
+  - `Class`: Session 2025–26 Grade 10-B details, active members, proposals, and invite code join flow.
   - `Students`: Searchable directory with tag chips, instant filtering, and student cards.
-  - `Profile`: Detailed classmate profile with hobbies, quotes, and privacy controls.
+  - `Profile`: Detailed classmate profile with hobbies, quotes, and privacy controls (hidden birthday/contact options).
   - `About School`: Researched FBISE affiliation, facilities grid, campus photo gallery, and faculty directory.
-  - `Superlatives`: Community awards and superlative voting.
-  - `Memory Wall`: Class quotes and memories with emoji reactions (`😂`, `❤️`, `🔥`) and reporting.
+  - `Superlatives`: Community awards with nominee voting (1 vote per student, un-voting support).
+  - `Memory Wall`: Class quotes and moments with short-code reactions (`laugh`, `heart`, `fire`) and auto-hiding report flags.
   - `Admin Panel`: Protected panel for class moderation and review of flagged entries.
 - **Enterprise Security**:
   - Zero-vulnerability template rendering: strict `escapeHtml()` on all user-supplied text.
-  - Production-ready `firestore.rules` enforcing document ownership, one-vote-per-user, and rate limits.
+  - Production-ready `firestore.rules` enforcing document ownership, one-vote-per-user, own-key reaction updates, and rate limits.
   - LocalStorage fallback when offline or before Firebase credentials are added.
 - **Modular Codebase**:
   - Pure ES Modules (`src/main.js`).
@@ -24,52 +24,29 @@ A modular, secure, and shared web portal for Army Public School & College System
 
 ---
 
-## 📁 Project Architecture
+## 💻 Local Development
 
-```text
-school-hub/
-├── index.html                    # Single Page Application container
-├── firestore.rules               # Production Firestore security & validation rules
-├── README.md                     # Documentation & setup guide
-├── images/                       # Crest and school emblems
-├── src/
-│   ├── main.js                   # Application bootstrap
-│   ├── config/
-│   │   ├── constants.js          # Global limits, thresholds, collection names
-│   │   └── firebase.js           # Firebase v10/v11 modular init with local fallback
-│   ├── core/
-│   │   ├── auth/                 # Google Sign-in / session management
-│   │   ├── router/               # Hash-based screen router (#students, #profile, etc.)
-│   │   ├── store/                # Centralized state management & Pub-Sub
-│   │   └── utils/                # escapeHtml, time, and ID generators
-│   ├── components/               # Reusable UI widgets
-│   │   ├── card/
-│   │   ├── empty-state/
-│   │   ├── modal/
-│   │   ├── navbar/
-│   │   └── toast/
-│   ├── features/                 # Modular feature controllers & templates
-│   │   ├── admin/
-│   │   ├── classes/
-│   │   ├── gallery/
-│   │   ├── memories/
-│   │   ├── students/
-│   │   ├── superlatives/
-│   │   └── teachers/
-│   └── styles/                   # Design system
-│       ├── base.css
-│       ├── layout.css
-│       └── theme.css
+Because the project uses native ES Modules (`<script type="module">`), modern browsers require a local HTTP server (double-clicking `index.html` via `file:///` is blocked by browser CORS security):
+
+```bash
+# Option A: using npx serve
+npx serve .
+
+# Option B: using Python 3
+python -m http.server 8000
+
+# Option C: using VS Code
+# Right-click index.html -> "Open with Live Server"
 ```
+
+Open `http://localhost:8000` (or the port indicated) in your browser.
 
 ---
 
-## 🛠️ Firebase Cloud Sync Setup (Phase 2)
-
-The application works out-of-the-box locally with mock persistence. To enable multi-user real-time synchronization across all devices:
+## 🛠️ Firebase Cloud Sync Setup
 
 1. **Create Firebase Project**:
-   - Go to [Firebase Console](https://console.firebase.google.com/) and create a project (e.g. `apsacs-skardu-hub`).
+   - Go to [Firebase Console](https://console.firebase.google.com/) and create a project (e.g. `school-hub-apsacs`).
 2. **Enable Authentication**:
    - Navigate to **Build > Authentication > Sign-in method**.
    - Enable **Google Provider**.
@@ -82,6 +59,29 @@ The application works out-of-the-box locally with mock persistence. To enable mu
 5. **Paste Web Config**:
    - In Project Settings > **General > Your apps**, select **Web (</>)**.
    - Copy the configuration object and paste into `src/config/firebase.js`.
+6. **Create First Active Class & Secret Code (in Console)**:
+   - In Firestore, create collection `classes`, document `10-b`:
+     ```json
+     {
+       "name": "Grade 10 — Section B",
+       "grade": "Grade 10",
+       "section": "Section B",
+       "status": "active",
+       "createdBy": "ADMIN_UID",
+       "supporterUids": ["ADMIN_UID"],
+       "createdAt": "[server timestamp]"
+     }
+     ```
+   - In collection `classSecrets`, document `10-b`:
+     ```json
+     {
+       "code": "[GENERATE_RANDOM_SECRET_CODE]"
+     }
+     ```
+7. **Set Administrator Role (in Console)**:
+   - Once you sign in with Google on the site, find your UID in **Authentication > Users**.
+   - Create a document in Firestore at `admins/{YOUR_UID}` (can be an empty document `{}`).
+   - Your account will automatically have administrative privileges.
 
 ---
 
@@ -90,16 +90,14 @@ The application works out-of-the-box locally with mock persistence. To enable mu
 1. Push your repository to GitHub:
    ```bash
    git add .
-   git commit -m "feat: complete Phase 1 modular architecture"
-   git branch -M main
-   git remote add origin https://github.com/<your-username>/school-hub.git
-   git push -u origin main
+   git commit -m "feat: complete hardened Firestore architecture"
+   git push origin main
    ```
 2. Log into [Cloudflare Dashboard](https://dash.cloudflare.com/) > **Workers & Pages**.
 3. Click **Create Application > Pages > Connect to Git**.
-4. Select `school-hub`:
+4. Select `PoGamerLab/school-hub`:
    - **Framework preset**: `None`
    - **Build command**: *(Leave blank)*
    - **Build output directory**: `/`
 5. Click **Save and Deploy**.
-6. **Important**: Add your custom Cloudflare domain (e.g. `yourname.pages.dev`) to **Firebase Console > Authentication > Settings > Authorized domains**, otherwise Google Sign-In will be blocked.
+6. **Important**: Add your custom Cloudflare domain (e.g. `school-hub.pages.dev`) to **Firebase Console > Authentication > Settings > Authorized domains**, otherwise Google Sign-In will be blocked.

@@ -1,6 +1,6 @@
-import { auth, isConfigured } from '../../config/firebase.js';
+import { auth, isFirebaseConfigured, initFirebase } from '../../config/firebase.js';
 import { store } from '../store/store.js';
-import { ADMIN_EMAILS } from '../../config/constants.js';
+import { showToast } from '../../components/toast/toast.js';
 
 class AuthService {
   constructor() {
@@ -12,75 +12,131 @@ class AuthService {
     if (this.initialized) return;
     this.initialized = true;
 
-    if (isConfigured && auth) {
+    const firebase = await initFirebase();
+    if (firebase && firebase.auth) {
       const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
-      onAuthStateChanged(auth, (firebaseUser) => {
+      const { doc, getDoc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+
+      onAuthStateChanged(firebase.auth, async (firebaseUser) => {
         if (firebaseUser) {
-          const isAdmin = ADMIN_EMAILS.includes(firebaseUser.email);
-          this.setUser({
-            uid: firebaseUser.uid,
-            displayName: firebaseUser.displayName || 'Class Member',
-            email: firebaseUser.email,
-            photoURL: firebaseUser.photoURL,
-            isAdmin
-          });
+          try {
+            const userRef = doc(firebase.db, 'users', firebaseUser.uid);
+            const userSnap = await getDoc(userRef);
+
+            let userData = null;
+            if (!userSnap.exists()) {
+              userData = {
+                displayName: firebaseUser.displayName || 'Classmate',
+                photoURL: firebaseUser.photoURL || '',
+                classId: '',
+                role: 'member',
+                points: 0,
+                banned: false,
+                createdAt: serverTimestamp()
+              };
+              await setDoc(userRef, userData);
+            } else {
+              userData = userSnap.data();
+            }
+
+            // Check admins/{uid} existence
+            const adminRef = doc(firebase.db, 'admins', firebaseUser.uid);
+            const adminSnap = await getDoc(adminRef);
+            const isAdmin = adminSnap.exists();
+
+            this.setUser({
+              uid: firebaseUser.uid,
+              displayName: userData.displayName || firebaseUser.displayName,
+              email: firebaseUser.email,
+              photoURL: userData.photoURL || firebaseUser.photoURL,
+              classId: userData.classId || '',
+              role: userData.role || 'member',
+              banned: userData.banned || false,
+              isAdmin
+            });
+          } catch (err) {
+            console.error('[SchoolHub Auth Profile Load Error]', err);
+            this.setUser(null);
+          }
         } else {
           this.setUser(null);
         }
       });
     } else {
-      // Local fallback: check localStorage for saved session
-      const savedUser = localStorage.getItem('apsacs_local_user');
-      if (savedUser) {
-        try {
-          this.setUser(JSON.parse(savedUser));
-        } catch {
-          this.setUser(null);
-        }
+      // Offline / Preview fallback from localStorage
+      const saved = localStorage.getItem('schoolhub_user');
+      if (saved) {
+        try { this.setUser(JSON.parse(saved)); } catch { this.setUser(null); }
       }
     }
   }
 
   setUser(userData) {
     this.user = userData;
-    store.set('user', userData, false);
+    store.set('user', userData, true);
     store.set('isAdmin', !!(userData && userData.isAdmin), false);
+    if (userData && userData.classId) {
+      store.set('currentClassId', userData.classId, false);
+    }
+    this.updateWriteControlsVisibility();
+  }
+
+  updateWriteControlsVisibility() {
+    const isAuthed = !!this.user;
+    document.querySelectorAll('.auth-required').forEach(el => {
+      if (isAuthed) {
+        el.classList.remove('hidden-auth');
+      } else {
+        el.classList.add('hidden-auth');
+      }
+    });
+
+    document.querySelectorAll('.anon-prompt').forEach(el => {
+      if (isAuthed) {
+        el.classList.add('hidden-auth');
+      } else {
+        el.classList.remove('hidden-auth');
+      }
+    });
   }
 
   async signInWithGoogle() {
-    if (isConfigured && auth) {
+    const firebase = await initFirebase();
+    if (firebase && firebase.auth) {
       const { GoogleAuthProvider, signInWithPopup } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
       const provider = new GoogleAuthProvider();
       try {
-        const result = await signInWithPopup(auth, provider);
+        const result = await signInWithPopup(firebase.auth, provider);
         return result.user;
       } catch (err) {
         console.error('Google Sign-In failed:', err);
+        showToast(`Sign in error: ${err.message}`, 'error');
         throw err;
       }
     } else {
-      // Simulated sign-in for local development
-      const name = prompt('Enter your name for student actions:') || 'Class Member';
-      const localUser = {
+      const name = prompt('Preview Mode: Enter your name for local testing:');
+      if (!name) return null;
+      const user = {
         uid: `local-${Date.now()}`,
         displayName: name,
-        email: `${name.toLowerCase().replace(/\s+/g, '')}@student.local`,
+        email: `${name.toLowerCase().replace(/\s+/g, '')}@student.aps`,
         photoURL: '',
-        isAdmin: true
+        classId: '10-b',
+        role: 'member',
+        isAdmin: false
       };
-      localStorage.setItem('apsacs_local_user', JSON.stringify(localUser));
-      this.setUser(localUser);
-      return localUser;
+      this.setUser(user);
+      return user;
     }
   }
 
   async signOut() {
-    if (isConfigured && auth) {
+    const firebase = await initFirebase();
+    if (firebase && firebase.auth) {
       const { signOut } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
-      await signOut(auth);
-    } else {
-      localStorage.removeItem('apsacs_local_user');
+      await signOut(firebase.auth);
     }
+    localStorage.removeItem('schoolhub_user');
     this.setUser(null);
   }
 

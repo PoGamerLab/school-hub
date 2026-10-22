@@ -1,22 +1,34 @@
 import { escapeHtml, escapeAttr } from '../../core/utils/escapeHtml.js';
 
+const REACTION_MAP = [
+  { code: 'laugh', emoji: '😂' },
+  { code: 'heart', emoji: '❤️' },
+  { code: 'fire', emoji: '🔥' }
+];
+
 export function renderMemoryCard(mem, currentUid = null) {
   const safeQuote = escapeHtml(mem.quote);
   const safeAuthor = escapeHtml(mem.author);
   const safeContext = mem.context ? `<span class="memory-context">${escapeHtml(mem.context)}</span>` : '';
   const safeId = escapeAttr(mem.id);
 
-  const emojis = ['😂', '❤️', '🔥'];
   const reactions = mem.reactions || {};
+  const userReaction = currentUid ? reactions[currentUid] : null;
 
-  const reactionButtonsHtml = emojis.map(emoji => {
-    const uids = reactions[emoji] || [];
-    const count = uids.length;
-    const hasReacted = currentUid && uids.includes(currentUid);
-    const activeClass = hasReacted ? 'user-reacted' : '';
+  // Count reactions by short-code
+  const reactionCounts = { laugh: 0, heart: 0, fire: 0 };
+  Object.values(reactions).forEach(code => {
+    if (reactionCounts[code] !== undefined) {
+      reactionCounts[code]++;
+    }
+  });
+
+  const reactionButtonsHtml = REACTION_MAP.map(({ code, emoji }) => {
+    const count = reactionCounts[code] || 0;
+    const isSelected = userReaction === code;
 
     return `
-      <button class="reaction-btn ${activeClass}" data-action="reaction" data-id="${safeId}" data-emoji="${emoji}">
+      <button class="reaction-btn ${isSelected ? 'user-reacted' : ''}" data-action="reaction" data-id="${safeId}" data-code="${code}">
         <span>${emoji}</span>
         ${count > 0 ? `<span>${count}</span>` : ''}
       </button>

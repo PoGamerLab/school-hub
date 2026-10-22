@@ -86,6 +86,16 @@
   line-height: 1.6;
 }
 
+/* Avatar Gradients 0..7 */
+.gradient-0 { background: linear-gradient(150deg, #1E6B4C, #0E271A); }
+.gradient-1 { background: linear-gradient(150deg, #D9A441, #A6742A); }
+.gradient-2 { background: linear-gradient(150deg, #153826, #1E6B4C); }
+.gradient-3 { background: linear-gradient(150deg, #A63B32, #7A2A23); }
+.gradient-4 { background: linear-gradient(150deg, #1E6B4C, #153826); }
+.gradient-5 { background: linear-gradient(150deg, #D9A441, #153826); }
+.gradient-6 { background: linear-gradient(150deg, #0E271A, #1E6B4C); }
+.gradient-7 { background: linear-gradient(150deg, #A6742A, #D9A441); }
+
 /* Profile Detail View */
 .profile {
   display: grid;
@@ -110,7 +120,6 @@
   font-weight: 600;
   position: relative;
   overflow: hidden;
-  background-size: cover;
 }
 
 .profile-photo .peak-tag {

@@ -9,8 +9,7 @@
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 16px;
-  padding: 26px 22px;
-  text-align: center;
+  padding: 24px 22px;
   box-shadow: 0 4px 16px rgba(21, 56, 38, 0.05);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   position: relative;
@@ -36,7 +35,8 @@
 
 .superlative-icon {
   font-size: 32px;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
+  text-align: center;
 }
 
 .superlative-title {
@@ -45,39 +45,50 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--emerald);
-  margin-bottom: 10px;
+  margin-bottom: 14px;
   line-height: 1.5;
+  text-align: center;
 }
 
-.superlative-winner {
-  font-family: 'Spectral', serif;
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--pine-deep);
-}
-
-.superlative-reason {
+.nominees-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 10px;
-  font-size: 13px;
-  color: #6b7268;
-  line-height: 1.55;
 }
 
-.superlative-vote-btn {
-  margin-top: 16px;
-  padding: 6px 14px;
-  font-size: 12px;
-  border-radius: 6px;
+.nominee-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 8px;
   border: 1px solid var(--line);
   background: var(--paper-dim);
-  color: var(--pine);
   cursor: pointer;
   transition: all 0.15s ease;
+  font-size: 13.5px;
 }
 
-.superlative-vote-btn:hover {
+.nominee-row:hover {
+  border-color: var(--gold);
+  background: #fff;
+}
+
+.nominee-row.voted {
   background: var(--pine);
   color: #fff;
+  border-color: var(--pine);
+}
+
+.nominee-name {
+  font-weight: 500;
+}
+
+.nominee-votes {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  opacity: 0.85;
 }
 
 @media (max-width: 900px) {

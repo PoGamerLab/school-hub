@@ -1,17 +1,45 @@
 import { escapeHtml, escapeAttr } from '../../core/utils/escapeHtml.js';
 
-export function renderSuperlativeCard(sup) {
+export function renderSuperlativeCard(sup, currentUid = null) {
   const safeIcon = escapeHtml(sup.icon || '🏆');
   const safeTitle = escapeHtml(sup.title);
-  const safeWinner = escapeHtml(sup.winner);
-  const safeReason = sup.reason ? `<div class="superlative-reason">${escapeHtml(sup.reason)}</div>` : '';
+  const safeId = escapeAttr(sup.id);
+
+  const nominees = Array.isArray(sup.nominees) ? sup.nominees : [];
+  const votes = sup.votes || {};
+  const totalVotes = Object.keys(votes).length;
+  const userVote = currentUid ? votes[currentUid] : null;
+
+  // Calculate vote counts per nominee
+  const voteCounts = {};
+  nominees.forEach(n => { voteCounts[n] = 0; });
+  Object.values(votes).forEach(nominee => {
+    if (voteCounts[nominee] !== undefined) {
+      voteCounts[nominee]++;
+    }
+  });
+
+  const nomineesHtml = nominees.map(nominee => {
+    const count = voteCounts[nominee] || 0;
+    const isVoted = userVote === nominee;
+    const pct = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+    const safeNominee = escapeHtml(nominee);
+
+    return `
+      <div class="nominee-row ${isVoted ? 'voted' : ''}" data-action="vote" data-id="${safeId}" data-nominee="${escapeAttr(nominee)}">
+        <span class="nominee-name">${safeNominee}</span>
+        <span class="nominee-votes">${count} (${pct}%)</span>
+      </div>
+    `;
+  }).join('');
 
   return `
-    <div class="superlative-card" data-id="${escapeAttr(sup.id)}">
+    <div class="superlative-card" data-id="${safeId}">
       <div class="superlative-icon">${safeIcon}</div>
       <div class="superlative-title">${safeTitle}</div>
-      <div class="superlative-winner">${safeWinner}</div>
-      ${safeReason}
+      <div class="nominees-list">
+        ${nomineesHtml}
+      </div>
     </div>
   `;
 }
