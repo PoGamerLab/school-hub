@@ -13,76 +13,71 @@ export function initSuperlatives() {
     if (!container) return;
     const superlatives = store.get('superlatives') || [];
     const user = authService.getCurrentUser();
-    const uid = user ? user.uid : null;
+    const currentUid = user ? user.uid : null;
 
     if (superlatives.length === 0) {
       container.innerHTML = `
         <div class="empty-state full-width-empty">
           <div class="empty-state-icon">🏆</div>
-          <div class="empty-state-title">No Superlatives Added Yet</div>
-          <div class="empty-state-desc">Click "+ Add Superlative" to propose an award category for the class to vote on!</div>
+          <div class="empty-state-title">No Superlatives Active</div>
+          <div class="empty-state-desc">Click "+ Add Award" to create peer awards for your class to vote on.</div>
         </div>
       `;
       return;
     }
-    container.innerHTML = superlatives.map(sup => renderSuperlativeCard(sup, uid)).join('');
+
+    container.innerHTML = superlatives.map(item => renderSuperlativeCard(item, currentUid)).join('');
   }
 
-  // Voting and un-voting via event delegation
+  // Handle single-vote voting and un-voting via event delegation
   if (container) {
     container.addEventListener('click', async (e) => {
-      const row = e.target.closest('[data-action="vote"]');
-      if (!row) return;
+      const nomineeRow = e.target.closest('.nominee-row');
+      if (!nomineeRow) return;
 
       const user = authService.getCurrentUser();
       if (!user) {
-        showToast('Please sign in with Google to cast your vote.', 'error');
+        showToast('Please sign in with Google to vote on superlatives.', 'error');
         return;
       }
 
-      const id = row.dataset.id;
-      const nominee = row.dataset.nominee;
-      const superlatives = store.get('superlatives') || [];
-      const sup = superlatives.find(s => s.id === id);
-      if (!sup) return;
-
-      const currentVote = (sup.votes || {})[user.uid];
+      const card = nomineeRow.closest('.superlative-card');
+      const superlativeId = card.dataset.id;
+      const nomineeName = nomineeRow.dataset.nominee;
+      const isCurrentlyVoted = nomineeRow.classList.contains('voted');
 
       try {
-        if (currentVote === nominee) {
-          // Un-vote: remove own key
-          await setOwnMapKey('superlatives', id, 'votes', user.uid, null);
-          showToast(`Vote removed for ${nominee}.`, 'info');
+        if (isCurrentlyVoted) {
+          await setOwnMapKey('superlatives', superlativeId, 'votes', null);
+          showToast('Vote removed.');
         } else {
-          // Vote for nominee
-          await setOwnMapKey('superlatives', id, 'votes', user.uid, nominee);
-          showToast(`Voted for ${nominee}!`, 'success');
+          await setOwnMapKey('superlatives', superlativeId, 'votes', nomineeName);
+          showToast(`Voted for ${nomineeName}!`, 'success');
         }
+        render();
       } catch (err) {
-        console.error('Vote failed:', err);
-        showToast(`Vote error: ${err.message}`, 'error');
+        console.error('Voting failed:', err);
+        showToast(`Vote failed: ${err.message}`, 'error');
       }
     });
   }
 
-  // Proposing a new superlative
   if (addSuperlativeForm) {
     addSuperlativeForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const user = authService.getCurrentUser();
       if (!user) {
-        showToast('Please sign in to add a superlative.', 'error');
+        showToast('Please sign in to add a superlative category.', 'error');
         return;
       }
 
-      const icon = document.getElementById('superlative-icon').value.trim() || '🏆';
       const title = document.getElementById('superlative-title').value.trim();
-      const nomineesRaw = document.getElementById('superlative-nominees')?.value || document.getElementById('superlative-winner')?.value || '';
-      
-      // Parse comma or newline separated nominees
-      const nominees = nomineesRaw.split(/[,\n]/).map(n => n.trim()).filter(Boolean);
-      if (nominees.length < 2) {
-        showToast('Please provide at least 2 nominees for the class to vote on.', 'error');
+      const icon = document.getElementById('superlative-icon').value.trim() || '🏆';
+      const nomineesRaw = document.getElementById('superlative-nominees').value.trim();
+
+      const nominees = nomineesRaw.split(',').map(n => n.trim()).filter(Boolean);
+      if (nominees.length === 0) {
+        showToast('Please list at least one nominee.', 'error');
         return;
       }
 
@@ -109,8 +104,7 @@ export function initSuperlatives() {
 
   function attachSubscription() {
     const classId = store.get('currentClassId') || '10-b';
-    subscribeClassCollection('superlatives', classId, (list) => {
-      store.set('superlatives', list, false);
+    subscribeClassCollection('superlatives', classId, () => {
       render();
     });
   }

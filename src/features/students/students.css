@@ -2,7 +2,7 @@
 .toolbar {
   display: flex;
   gap: 12px;
-  margin: 32px 0 24px;
+  margin: 24px 0 20px;
   flex-wrap: wrap;
   align-items: center;
 }
@@ -16,7 +16,7 @@
   background: #fff;
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 12px 16px;
+  padding: 10px 14px;
 }
 
 .search input {
@@ -40,15 +40,16 @@
 }
 
 .chip {
-  padding: 9px 15px;
+  padding: 8px 14px;
   border-radius: 999px;
   border: 1px solid var(--line);
   background: #fff;
-  font-size: 13px;
+  font-size: 12.5px;
   font-weight: 500;
   color: #576057;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
+  user-select: none;
 }
 
 .chip.active {
@@ -59,30 +60,30 @@
 
 .grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 18px;
 }
 
 .submit-band {
-  margin-top: 64px;
+  margin-top: 48px;
   background: var(--paper-dim);
   border: 1px dashed var(--emerald);
   border-radius: 16px;
-  padding: 42px;
+  padding: 36px 24px;
   text-align: center;
 }
 
 .submit-band h3 {
-  font-size: 21px;
-  margin-bottom: 10px;
+  font-size: 20px;
+  margin-bottom: 8px;
   color: var(--pine-deep);
 }
 
 .submit-band p {
-  font-size: 14px;
+  font-size: 13.5px;
   color: #565d55;
   max-width: 420px;
-  margin: 0 auto 22px;
+  margin: 0 auto 20px;
   line-height: 1.6;
 }
 
@@ -99,12 +100,12 @@
 /* Profile Detail View */
 .profile {
   display: grid;
-  grid-template-columns: 270px 1fr;
-  gap: 44px;
+  grid-template-columns: 260px 1fr;
+  gap: 36px;
   background: #fff;
   border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 40px;
+  border-radius: 16px;
+  padding: 36px;
 }
 
 .profile-photo {
@@ -116,7 +117,7 @@
   justify-content: center;
   color: #fff;
   font-family: 'Spectral', serif;
-  font-size: 52px;
+  font-size: 48px;
   font-weight: 600;
   position: relative;
   overflow: hidden;
@@ -124,37 +125,36 @@
 
 .profile-photo .peak-tag {
   position: absolute;
-  bottom: 14px;
-  left: 14px;
-  right: 14px;
+  bottom: 12px;
+  left: 12px;
+  right: 12px;
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10.5px;
+  font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  opacity: 0.85;
-  background: rgba(0, 0, 0, 0.35);
+  opacity: 0.9;
+  background: rgba(0, 0, 0, 0.45);
   padding: 4px 8px;
   border-radius: 4px;
-  backdrop-filter: blur(4px);
 }
 
 .profile-main .pname {
-  font-size: 32px;
+  font-size: clamp(24px, 4vw, 32px);
   color: var(--pine-deep);
 }
 
 .profile-main .prole {
-  font-size: 13.5px;
+  font-size: 13px;
   color: var(--red);
   font-family: 'IBM Plex Mono', monospace;
-  margin-top: 6px;
+  margin-top: 4px;
   letter-spacing: 0.03em;
 }
 
 .profile-main .pbio {
-  margin: 20px 0 26px;
-  font-size: 15px;
-  line-height: 1.75;
+  margin: 18px 0 22px;
+  font-size: 14.5px;
+  line-height: 1.7;
   color: #3E453D;
   max-width: 520px;
 }
@@ -166,64 +166,85 @@
 }
 
 .field {
-  padding: 16px 0;
+  padding: 14px 0;
   border-bottom: 1px solid var(--line);
-  padding-right: 20px;
+  padding-right: 16px;
 }
 
 .field .flabel {
   font-family: 'IBM Plex Mono', monospace;
-  font-size: 10.5px;
+  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: #8a9188;
 }
 
 .field .fval {
-  margin-top: 6px;
-  font-size: 14.5px;
+  margin-top: 4px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--ink);
+  word-break: break-word;
 }
 
 .field-private {
   font-style: italic;
   color: #8a9188;
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
 .profile-nav-group {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   flex-wrap: wrap;
 }
 
 .profile-selector {
-  padding: 8px 12px;
+  padding: 7px 12px;
   border-radius: 8px;
   border: 1px solid var(--line);
   font-family: inherit;
-  font-size: 13.5px;
+  font-size: 13px;
   background: #fff;
   color: var(--ink);
   cursor: pointer;
+  max-width: 220px;
 }
 
-@media (max-width: 900px) {
-  .grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+@media (max-width: 800px) {
   .profile {
     grid-template-columns: 1fr;
+    padding: 24px 18px;
+    gap: 24px;
+  }
+  .profile-photo {
+    max-width: 220px;
+    margin: 0 auto;
   }
 }
 
 @media (max-width: 600px) {
-  .grid {
-    grid-template-columns: 1fr;
+  .toolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .search {
+    width: 100%;
+  }
+  .chips {
+    overflow-x: auto;
+    white-space: nowrap;
+    padding-bottom: 4px;
+    -webkit-overflow-scrolling: touch;
   }
   .field-grid {
     grid-template-columns: 1fr;
+  }
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .submit-band {
+    padding: 24px 16px;
   }
 }

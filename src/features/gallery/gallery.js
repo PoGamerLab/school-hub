@@ -73,8 +73,7 @@ export function initGallery() {
 
   function attachSubscription() {
     const classId = store.get('currentClassId') || '10-b';
-    subscribeClassCollection('gallery', classId, (list) => {
-      store.set('gallery', list, false);
+    subscribeClassCollection('gallery', classId, () => {
       render();
     });
   }

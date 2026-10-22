@@ -1,9 +1,12 @@
 * {
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
 }
 
 html {
   scroll-behavior: smooth;
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
@@ -12,6 +15,7 @@ body {
   color: var(--ink);
   font-family: 'Work Sans', -apple-system, BlinkMacSystemFont, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -40,7 +44,7 @@ button {
 }
 
 .btn {
-  padding: 12px 24px;
+  padding: 10px 20px;
   border-radius: 8px;
   font-size: 14px;
   font-weight: 600;
@@ -49,8 +53,10 @@ button {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: all 0.2s ease;
+  transition: all 0.15s ease;
   cursor: pointer;
+  user-select: none;
+  min-height: 40px;
 }
 
 .btn-primary {
@@ -83,8 +89,9 @@ button {
 }
 
 .btn-sm {
-  padding: 8px 14px;
+  padding: 7px 12px;
   font-size: 13px;
+  min-height: 34px;
 }
 
 .btn-full {

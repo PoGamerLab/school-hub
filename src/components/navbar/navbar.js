@@ -5,9 +5,46 @@ import { escapeHtml } from '../../core/utils/escapeHtml.js';
 
 export function initNavbar() {
   const container = document.querySelector('.nav-auth');
-  if (!container) return;
+  const toggleBtn = document.getElementById('nav-toggle-btn');
+  const mobileDrawer = document.getElementById('mobile-nav-drawer');
+
+  // Mobile menu toggle
+  if (toggleBtn && mobileDrawer) {
+    toggleBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = mobileDrawer.classList.toggle('open');
+      toggleBtn.classList.toggle('active', isOpen);
+      toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+    });
+
+    mobileDrawer.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (btn) {
+        mobileDrawer.classList.remove('open');
+        toggleBtn.classList.remove('active');
+        toggleBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('click', (e) => {
+      if (mobileDrawer.classList.contains('open') && !mobileDrawer.contains(e.target) && !toggleBtn.contains(e.target)) {
+        mobileDrawer.classList.remove('open');
+        toggleBtn.classList.remove('active');
+        toggleBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && mobileDrawer.classList.contains('open')) {
+        mobileDrawer.classList.remove('open');
+        toggleBtn.classList.remove('active');
+        toggleBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
 
   function renderAuth(user) {
+    if (!container) return;
     if (user) {
       const avatarHtml = user.photoURL 
         ? `<img src="${escapeHtml(user.photoURL)}" alt="Avatar" class="auth-avatar">`
@@ -45,7 +82,6 @@ export function initNavbar() {
     }
   }
 
-  // Subscribe to auth changes
   store.subscribe('user', (user) => {
     renderAuth(user);
   });

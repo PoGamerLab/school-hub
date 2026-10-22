@@ -74,6 +74,7 @@
   display: flex;
   gap: 6px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .reaction-btn {
@@ -117,5 +118,18 @@
 @media (max-width: 900px) {
   .memory-grid {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .memory-card {
+    padding: 16px 16px;
+  }
+  .memory-quote {
+    font-size: 15px;
+  }
+  .memory-footer {
+    flex-wrap: wrap;
+    gap: 8px;
   }
 }

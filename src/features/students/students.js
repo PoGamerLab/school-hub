@@ -6,8 +6,6 @@ import { extractInitials } from '../../core/utils/ids.js';
 import { showToast } from '../../components/toast/toast.js';
 import { subscribeClassCollection, createDocument } from '../../core/db/firestore.js';
 
-let unsubscribeStudents = null;
-
 export function initStudents() {
   const gridContainer = document.querySelector('.grid');
   const searchInput = document.querySelector('.search input');
@@ -24,7 +22,8 @@ export function initStudents() {
 
     return students.filter(student => {
       const matchesCategory = (activeCategory === 'All' || (student.category && student.category.toLowerCase() === activeCategory.toLowerCase()));
-      const matchesSearch = (student.name && student.name.toLowerCase().includes(searchQuery)) ||
+      const matchesSearch = !searchQuery ||
+                            (student.name && student.name.toLowerCase().includes(searchQuery)) ||
                             (student.tags && student.tags.toLowerCase().includes(searchQuery)) ||
                             (student.roll && student.roll.toString().includes(searchQuery));
       return matchesCategory && matchesSearch;
@@ -80,11 +79,15 @@ export function initStudents() {
     }
   }
 
-  // Event Listeners
+  // Debounced search for smooth typing
   if (searchInput) {
+    let searchTimer = null;
     searchInput.addEventListener('input', (e) => {
-      store.set('searchQuery', e.target.value, false);
-      renderGrid();
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        store.set('searchQuery', e.target.value, false);
+        renderGrid();
+      }, 120);
     });
   }
 
@@ -143,7 +146,6 @@ export function initStudents() {
       const showBirthday = document.getElementById('student-show-birthday')?.checked ?? false;
       const showContact = document.getElementById('student-show-contact')?.checked ?? false;
 
-      // Construct compliant document payload
       const payload = {
         classId: store.get('currentClassId') || '10-b',
         ownerUid: user.uid,
@@ -161,7 +163,6 @@ export function initStudents() {
         showContact
       };
 
-      // Strict privacy rule enforcement: only include birthday/contact if show is true
       if (showBirthday && birthday) {
         payload.birthday = birthday;
       }
@@ -185,21 +186,15 @@ export function initStudents() {
   // Subscribe to students in current class
   function attachSubscription() {
     const classId = store.get('currentClassId') || '10-b';
-    subscribeClassCollection('students', classId, (list) => {
-      store.set('students', list, false);
+    subscribeClassCollection('students', classId, () => {
       renderGrid();
       updateDropdown();
       updateProfile(store.get('currentStudentId'));
     });
   }
 
-  store.subscribe('currentClassId', () => {
-    attachSubscription();
-  });
-
-  store.subscribe('currentStudentId', (id) => {
-    updateProfile(id);
-  });
+  store.subscribe('currentClassId', attachSubscription);
+  store.subscribe('currentStudentId', (id) => updateProfile(id));
 
   attachSubscription();
 }

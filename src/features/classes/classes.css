@@ -3,11 +3,11 @@
   background: var(--pine);
   color: var(--paper);
   border-radius: 16px;
-  padding: 36px 40px;
+  padding: 32px 36px;
   display: flex;
   justify-content: space-between;
   align-items: center;
-  gap: 24px;
+  gap: 20px;
   flex-wrap: wrap;
   position: relative;
   overflow: hidden;
@@ -38,29 +38,30 @@
 }
 
 .class-banner h3 {
-  font-size: 28px;
-  margin-top: 8px;
+  font-size: clamp(22px, 3.5vw, 28px);
+  margin-top: 6px;
   color: #FBF8EF;
 }
 
 .class-banner .meta {
-  margin-top: 10px;
+  margin-top: 8px;
   font-size: 13.5px;
   color: #C9D6CC;
+  line-height: 1.5;
 }
 
 .class-avatar {
   position: relative;
   z-index: 2;
-  width: 76px;
-  height: 76px;
+  width: 72px;
+  height: 72px;
   border-radius: 50%;
   background: var(--gold);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Spectral', serif;
-  font-size: 23px;
+  font-size: 22px;
   color: var(--pine-deep);
   flex-shrink: 0;
   font-weight: 700;
@@ -98,7 +99,29 @@
 }
 
 .proposal-status {
-  font-size: 12.5px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--emerald);
+  background: var(--paper-dim);
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+}
+
+.proposal-info {
+  font-size: 13px;
   color: #6b7268;
   margin-top: 4px;
+}
+
+@media (max-width: 600px) {
+  .class-banner {
+    padding: 24px 18px;
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .proposal-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
 }

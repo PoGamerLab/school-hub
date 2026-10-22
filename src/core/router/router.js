@@ -9,7 +9,7 @@ class Router {
 
   init() {
     if (this.initialized) return;
-    this.navButtons = document.querySelectorAll('.navlinks button');
+    this.navButtons = document.querySelectorAll('.navlinks button, .mobile-nav-links button');
     this.screens = document.querySelectorAll('.screen');
 
     // Setup navigation clicks
@@ -80,6 +80,8 @@ class Router {
       screenId = 'home';
     }
 
+    // Refresh nav buttons in case dynamic ones were added (e.g. admin)
+    this.navButtons = document.querySelectorAll('.navlinks button, .mobile-nav-links button');
     this.navButtons.forEach(btn => {
       if (btn.dataset.screen === screenId) {
         btn.classList.add('active');

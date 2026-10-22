@@ -66,8 +66,7 @@ export function initTeachers() {
 
   function attachSubscription() {
     const classId = store.get('currentClassId') || '10-b';
-    subscribeClassCollection('teachers', classId, (list) => {
-      store.set('teachers', list, false);
+    subscribeClassCollection('teachers', classId, () => {
       render();
     });
   }

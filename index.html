@@ -44,6 +44,7 @@
       </div>
     </div>
 
+    <!-- Desktop Navigation Links -->
     <div class="navlinks">
       <button class="active" data-screen="home">Home</button>
       <button data-screen="class">Class</button>
@@ -55,9 +56,30 @@
       <button data-screen="admin" class="admin-nav-item hidden-admin">Admin</button>
     </div>
 
-    <!-- Auth Widget -->
-    <div class="nav-auth"></div>
+    <!-- Right Controls: Auth & Hamburger -->
+    <div class="nav-right">
+      <div class="nav-auth"></div>
+      <button class="nav-toggle" id="nav-toggle-btn" aria-label="Toggle navigation menu" aria-expanded="false">
+        <span class="hamburger-bar"></span>
+        <span class="hamburger-bar"></span>
+        <span class="hamburger-bar"></span>
+      </button>
+    </div>
   </nav>
+
+  <!-- Mobile Navigation Drawer -->
+  <div class="mobile-nav-drawer" id="mobile-nav-drawer">
+    <div class="mobile-nav-links">
+      <button class="active" data-screen="home">🏠 Home</button>
+      <button data-screen="class">🏫 Our Class</button>
+      <button data-screen="students">👥 Students Directory</button>
+      <button data-screen="profile">👤 Student Profile</button>
+      <button data-screen="school">🏛️ About School</button>
+      <button data-screen="superlatives">🏆 Superlatives</button>
+      <button data-screen="memories">💭 Memory Wall</button>
+      <button data-screen="admin" class="admin-nav-item hidden-admin">🛡️ Admin Console</button>
+    </div>
+  </div>
 
   <!-- Screen 1: Home -->
   <div class="screen active" id="home">
@@ -85,7 +107,7 @@
       </div>
       <div id="class-banner-container"></div>
 
-      <div class="section-actions" style="margin-top:24px;">
+      <div class="section-actions class-actions-row">
         <button class="btn btn-outline btn-sm auth-required" id="open-join-class-btn">Join Class via Code</button>
         <button class="btn btn-primary btn-sm auth-required" id="open-propose-class-btn">+ Propose New Class</button>
       </div>

@@ -48,25 +48,20 @@ export function initMemories() {
           return;
         }
 
-        const id = reactionBtn.dataset.id;
-        const code = reactionBtn.dataset.code;
-        const memories = store.get('memories') || [];
-        const mem = memories.find(m => m.id === id);
-        if (!mem) return;
-
-        const currentReaction = (mem.reactions || {})[user.uid];
+        const memoryId = reactionBtn.dataset.id;
+        const reactionType = reactionBtn.dataset.type; // 'laugh' | 'heart' | 'fire'
+        const hasReacted = reactionBtn.classList.contains('active');
 
         try {
-          if (currentReaction === code) {
-            // Un-react: remove own key
-            await setOwnMapKey('memories', id, 'reactions', user.uid, null);
+          if (hasReacted) {
+            await setOwnMapKey('memories', memoryId, 'reactions', null);
           } else {
-            // Set reaction short code
-            await setOwnMapKey('memories', id, 'reactions', user.uid, code);
+            await setOwnMapKey('memories', memoryId, 'reactions', reactionType);
           }
+          render();
         } catch (err) {
-          console.error('Reaction update failed:', err);
-          showToast(`Error: ${err.message}`, 'error');
+          console.error('Reaction failed:', err);
+          showToast(`Action failed: ${err.message}`, 'error');
         }
         return;
       }
@@ -74,17 +69,22 @@ export function initMemories() {
       const reportBtn = e.target.closest('[data-action="report"]');
       if (reportBtn) {
         if (!user) {
-          showToast('Please sign in with Google to flag entries.', 'error');
+          showToast('Please sign in with Google to report a post.', 'error');
           return;
         }
 
-        const id = reportBtn.dataset.id;
+        const memoryId = reportBtn.dataset.id;
+        if (!confirm('Are you sure you want to flag this entry for moderator review?')) {
+          return;
+        }
+
         try {
-          await setOwnMapKey('memories', id, 'reports', user.uid, true);
-          showToast('Thank you for reporting. Entries with multiple flags are hidden for moderator review.', 'info');
+          await setOwnMapKey('memories', memoryId, 'reports', true);
+          showToast('Thank you. Entry flagged for moderator review.');
+          render();
         } catch (err) {
           console.error('Report failed:', err);
-          showToast(`Error: ${err.message}`, 'error');
+          showToast(`Report failed: ${err.message}`, 'error');
         }
       }
     });
@@ -127,8 +127,7 @@ export function initMemories() {
 
   function attachSubscription() {
     const classId = store.get('currentClassId') || '10-b';
-    subscribeClassCollection('memories', classId, (list) => {
-      store.set('memories', list, false);
+    subscribeClassCollection('memories', classId, () => {
       render();
     });
   }

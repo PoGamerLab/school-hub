@@ -55,6 +55,7 @@ class Store {
       activeScreen: 'home'
     };
     this.listeners = new Map();
+    this.isNotifying = new Set();
   }
 
   get(key) {
@@ -62,6 +63,7 @@ class Store {
   }
 
   set(key, value, persist = true) {
+    if (this.state[key] === value) return;
     this.state[key] = value;
     if (persist && ['students', 'gallery', 'teachers', 'superlatives', 'memories'].includes(key)) {
       setStored(`schoolhub_${key}`, value);
@@ -86,19 +88,33 @@ class Store {
   }
 
   notify(key, value) {
-    const set = this.listeners.get(key);
-    if (set) {
-      set.forEach(cb => {
-        try {
-          cb(value, this.state);
-        } catch (e) {
-          console.error(`Error in listener for ${key}:`, e);
-        }
-      });
-    }
-    const wildcard = this.listeners.get('*');
-    if (wildcard) {
-      wildcard.forEach(cb => cb(key, value, this.state));
+    // Guard against re-entrant loops for the same key
+    if (this.isNotifying.has(key)) return;
+    this.isNotifying.add(key);
+
+    try {
+      const set = this.listeners.get(key);
+      if (set) {
+        set.forEach(cb => {
+          try {
+            cb(value, this.state);
+          } catch (e) {
+            console.error(`Error in listener for ${key}:`, e);
+          }
+        });
+      }
+      const wildcard = this.listeners.get('*');
+      if (wildcard) {
+        wildcard.forEach(cb => {
+          try {
+            cb(key, value, this.state);
+          } catch (e) {
+            console.error('Error in wildcard listener:', e);
+          }
+        });
+      }
+    } finally {
+      this.isNotifying.delete(key);
     }
   }
 }
