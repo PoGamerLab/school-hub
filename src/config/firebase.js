@@ -4,12 +4,13 @@
 
 // Paste your Firebase Web App credentials from console.firebase.google.com here:
 export const firebaseConfig = {
-  apiKey: "AIzaSy_YOUR_API_KEY_HERE",
-  authDomain: "school-hub-apsacs.firebaseapp.com",
-  projectId: "school-hub-apsacs",
-  storageBucket: "school-hub-apsacs.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef123456"
+  apiKey: "AIzaSyCqU3d2zWHpqrzC_Ji8_vriJGwd5q39xmw",
+  authDomain: "school-hub-be296.firebaseapp.com",
+  projectId: "school-hub-be296",
+  storageBucket: "school-hub-be296.firebasestorage.app",
+  messagingSenderId: "315184359214",
+  appId: "1:315184359214:web:ee2f74b524c5a6826cfcbf",
+  measurementId: "G-DSC7JY2X3T"
 };
 
 let app = null;
