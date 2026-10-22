@@ -1,0 +1,93 @@
+/* Faculty & Teachers Styles */
+.teachers-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 40px;
+}
+
+.teacher-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  padding: 24px 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 4px 16px rgba(21, 56, 38, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.teacher-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 24px -10px rgba(21, 56, 38, 0.2);
+}
+
+.teacher-photo-box {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background: linear-gradient(150deg, var(--emerald), var(--pine-deep));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: 'Spectral', serif;
+  font-size: 28px;
+  font-weight: 700;
+  margin-bottom: 14px;
+  border: 3px solid var(--paper-dim);
+  overflow: hidden;
+}
+
+.teacher-photo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.teacher-name {
+  font-family: 'Spectral', serif;
+  font-size: 18.5px;
+  font-weight: 600;
+  color: var(--pine-deep);
+}
+
+.teacher-subject {
+  display: inline-block;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  color: var(--emerald);
+  background: var(--paper-dim);
+  padding: 5px 12px;
+  border-radius: 6px;
+  margin: 6px 0 10px;
+  font-weight: 600;
+  border: 1px solid var(--line);
+}
+
+.teacher-details {
+  font-size: 13px;
+  color: #6b7268;
+  line-height: 1.55;
+}
+
+.teacher-room-tag {
+  font-family: 'IBM Plex Mono', monospace;
+  margin-top: 4px;
+  opacity: 0.85;
+}
+
+@media (max-width: 900px) {
+  .teachers-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 600px) {
+  .teachers-grid {
+    grid-template-columns: 1fr;
+  }
+}

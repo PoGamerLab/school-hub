@@ -1,0 +1,131 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      // Replace with your Firebase admin UID or check token custom claims
+      return isSignedIn() && (
+        request.auth.token.email in ['admin@aps-skardu.edu.pk'] ||
+        request.auth.uid in ['ADMIN_FIREBASE_UID_HERE']
+      );
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isMemberOfClass(classId) {
+      return isSignedIn() && (getUserData().classId == classId || isAdmin());
+    }
+
+    function isNotBanned() {
+      return isSignedIn() && (!('banned' in getUserData()) || getUserData().banned == false);
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow read: if true;
+      allow create: if isOwner(userId) && request.resource.data.keys().hasAll(['displayName', 'createdAt']);
+      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'points', 'banned'])) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // Classes Collection
+    match /classes/{classId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isNotBanned();
+      allow update: if isSignedIn() && (
+        isAdmin() || 
+        // Allow adding current UID to supporterUids array
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['supporterUids', 'memberCount'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Students Directory
+    match /students/{studentId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isNotBanned() && 
+        request.resource.data.name.size() > 0 && 
+        request.resource.data.name.size() <= 80 &&
+        request.resource.data.bio.size() <= 500;
+      allow update: if (resource.data.ownerUid == request.auth.uid || isAdmin()) && isNotBanned();
+      allow delete: if (resource.data.ownerUid == request.auth.uid || isAdmin());
+    }
+
+    // Faculty & Teachers Directory
+    match /teachers/{teacherId} {
+      allow read: if true;
+      allow write: if isSignedIn() && isNotBanned();
+    }
+
+    // Campus Photo Gallery
+    match /gallery/{photoId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isNotBanned() && request.resource.data.caption.size() <= 140;
+      allow update, delete: if isAdmin();
+    }
+
+    // Memory Wall
+    match /memories/{memoryId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isNotBanned() && 
+        request.resource.data.quote.size() > 0 && 
+        request.resource.data.quote.size() <= 300;
+      allow update: if isSignedIn() && (
+        // Allow reacting or reporting
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions', 'reportUids', 'hidden']) ||
+        resource.data.authorUid == request.auth.uid ||
+        isAdmin()
+      );
+      allow delete: if (resource.data.authorUid == request.auth.uid || isAdmin());
+    }
+
+    // Superlatives
+    match /superlatives/{superlativeId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isNotBanned();
+      allow update: if isSignedIn() && (
+        // Only allow a user to set or remove their own vote in the votes map
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']) ||
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Polls
+    match /polls/{pollId} {
+      allow read: if true;
+      allow create: if isSignedIn() && isNotBanned();
+      allow update: if isSignedIn() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']);
+      allow delete: if isAdmin();
+    }
+
+    // Homework & Timetable
+    match /homework/{homeworkId} {
+      allow read: if true;
+      allow write: if isSignedIn() && isNotBanned();
+    }
+
+    match /timetable/{classId} {
+      allow read: if true;
+      allow write: if isSignedIn() && isNotBanned();
+    }
+
+    // Reports collection
+    match /reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isSignedIn() && isNotBanned();
+      allow update, delete: if isAdmin();
+    }
+  }
+}

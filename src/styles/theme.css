@@ -1,0 +1,25 @@
+:root {
+  --pine: #153826;
+  --pine-deep: #0E271A;
+  --emerald: #1E6B4C;
+  --paper: #F8F5EC;
+  --paper-dim: #EFE7D3;
+  --ink: #20261F;
+  --red: #A63B32;
+  --gold: #D9A441;
+  --line: rgba(21, 56, 38, 0.15);
+  --card-bg: #FFFFFF;
+}
+
+[data-theme="dark"] {
+  --pine: #1B4530;
+  --pine-deep: #0A1C12;
+  --emerald: #2E8B63;
+  --paper: #121814;
+  --paper-dim: #1B241E;
+  --ink: #EAEFEA;
+  --red: #C55349;
+  --gold: #E5B255;
+  --line: rgba(235, 245, 238, 0.12);
+  --card-bg: #18221B;
+}

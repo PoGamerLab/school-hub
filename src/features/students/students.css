@@ -1,0 +1,220 @@
+/* Students Directory & Profile */
+.toolbar {
+  display: flex;
+  gap: 12px;
+  margin: 32px 0 24px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.search {
+  flex: 1;
+  min-width: 220px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 16px;
+}
+
+.search input {
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 14px;
+  width: 100%;
+  color: var(--ink);
+}
+
+.search input::placeholder {
+  color: #9aa39a;
+}
+
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 9px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  color: #576057;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chip.active {
+  background: var(--emerald);
+  border-color: var(--emerald);
+  color: #fff;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+}
+
+.submit-band {
+  margin-top: 64px;
+  background: var(--paper-dim);
+  border: 1px dashed var(--emerald);
+  border-radius: 16px;
+  padding: 42px;
+  text-align: center;
+}
+
+.submit-band h3 {
+  font-size: 21px;
+  margin-bottom: 10px;
+  color: var(--pine-deep);
+}
+
+.submit-band p {
+  font-size: 14px;
+  color: #565d55;
+  max-width: 420px;
+  margin: 0 auto 22px;
+  line-height: 1.6;
+}
+
+/* Profile Detail View */
+.profile {
+  display: grid;
+  grid-template-columns: 270px 1fr;
+  gap: 44px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 40px;
+}
+
+.profile-photo {
+  width: 100%;
+  aspect-ratio: 1/1.05;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-family: 'Spectral', serif;
+  font-size: 52px;
+  font-weight: 600;
+  position: relative;
+  overflow: hidden;
+  background-size: cover;
+}
+
+.profile-photo .peak-tag {
+  position: absolute;
+  bottom: 14px;
+  left: 14px;
+  right: 14px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.85;
+  background: rgba(0, 0, 0, 0.35);
+  padding: 4px 8px;
+  border-radius: 4px;
+  backdrop-filter: blur(4px);
+}
+
+.profile-main .pname {
+  font-size: 32px;
+  color: var(--pine-deep);
+}
+
+.profile-main .prole {
+  font-size: 13.5px;
+  color: var(--red);
+  font-family: 'IBM Plex Mono', monospace;
+  margin-top: 6px;
+  letter-spacing: 0.03em;
+}
+
+.profile-main .pbio {
+  margin: 20px 0 26px;
+  font-size: 15px;
+  line-height: 1.75;
+  color: #3E453D;
+  max-width: 520px;
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  border-top: 1px solid var(--line);
+}
+
+.field {
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+  padding-right: 20px;
+}
+
+.field .flabel {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8a9188;
+}
+
+.field .fval {
+  margin-top: 6px;
+  font-size: 14.5px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.field-private {
+  font-style: italic;
+  color: #8a9188;
+  font-size: 13px;
+}
+
+.profile-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.profile-selector {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-family: inherit;
+  font-size: 13.5px;
+  background: #fff;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+@media (max-width: 900px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .profile {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 600px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  .field-grid {
+    grid-template-columns: 1fr;
+  }
+}

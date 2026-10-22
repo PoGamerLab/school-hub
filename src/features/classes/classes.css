@@ -1,0 +1,68 @@
+/* Class Screen Styles */
+.class-banner {
+  background: var(--pine);
+  color: var(--paper);
+  border-radius: 16px;
+  padding: 36px 40px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  flex-wrap: wrap;
+  position: relative;
+  overflow: hidden;
+}
+
+.class-banner::after {
+  content: "";
+  position: absolute;
+  top: -40%;
+  right: -8%;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(217, 164, 65, 0.18) 0%, transparent 70%);
+}
+
+.class-banner-content {
+  position: relative;
+  z-index: 2;
+}
+
+.class-banner .k {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--gold);
+  text-transform: uppercase;
+}
+
+.class-banner h3 {
+  font-size: 28px;
+  margin-top: 8px;
+  color: #FBF8EF;
+}
+
+.class-banner .meta {
+  margin-top: 10px;
+  font-size: 13.5px;
+  color: #C9D6CC;
+}
+
+.class-avatar {
+  position: relative;
+  z-index: 2;
+  width: 76px;
+  height: 76px;
+  border-radius: 50%;
+  background: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Spectral', serif;
+  font-size: 23px;
+  color: var(--pine-deep);
+  flex-shrink: 0;
+  font-weight: 700;
+  border: 3px solid rgba(248, 245, 236, 0.5);
+}

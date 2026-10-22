@@ -1,0 +1,121 @@
+/* Memory Wall Styles */
+.memory-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
+}
+
+.memory-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--gold);
+  border-radius: 12px;
+  padding: 22px 24px;
+  box-shadow: 0 4px 14px rgba(21, 56, 38, 0.05);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.memory-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 22px -12px rgba(21, 56, 38, 0.2);
+}
+
+.memory-quote {
+  font-family: 'Spectral', serif;
+  font-style: italic;
+  font-size: 16.5px;
+  line-height: 1.6;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+
+.memory-quote::before {
+  content: "\201C";
+}
+
+.memory-quote::after {
+  content: "\201D";
+}
+
+.memory-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: auto;
+}
+
+.memory-author {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--emerald);
+}
+
+.memory-context {
+  font-size: 12px;
+  color: #8a9188;
+}
+
+.memory-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  gap: 8px;
+}
+
+.reactions-list {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.reaction-btn {
+  background: var(--paper-dim);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s ease;
+}
+
+.reaction-btn:hover {
+  background: #fff;
+  border-color: var(--gold);
+}
+
+.reaction-btn.user-reacted {
+  background: var(--pine);
+  color: #fff;
+  border-color: var(--pine);
+}
+
+.memory-report-btn {
+  background: transparent;
+  border: none;
+  font-size: 11px;
+  color: #a0a69f;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.memory-report-btn:hover {
+  color: var(--red);
+}
+
+@media (max-width: 900px) {
+  .memory-grid {
+    grid-template-columns: 1fr;
+  }
+}

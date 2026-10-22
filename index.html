@@ -4,21 +4,43 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>APS ACS Skardu — Official Class Directory &amp; Portal</title>
+  <meta name="description" content="APSACS Skardu Class Directory and student portal with memories, superlatives, faculty, and gallery.">
+  <link rel="icon" type="image/png" href="images/apsacs-logo.png">
+
+  <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+
+  <!-- Modular Stylesheets -->
+  <link rel="stylesheet" href="src/styles/theme.css">
+  <link rel="stylesheet" href="src/styles/base.css">
+  <link rel="stylesheet" href="src/styles/layout.css">
+  <link rel="stylesheet" href="src/components/navbar/navbar.css">
+  <link rel="stylesheet" href="src/components/toast/toast.css">
+  <link rel="stylesheet" href="src/components/modal/modal.css">
+  <link rel="stylesheet" href="src/components/card/card.css">
+  <link rel="stylesheet" href="src/components/empty-state/empty-state.css">
+  <link rel="stylesheet" href="src/features/classes/classes.css">
+  <link rel="stylesheet" href="src/features/students/students.css">
+  <link rel="stylesheet" href="src/features/teachers/teachers.css">
+  <link rel="stylesheet" href="src/features/gallery/gallery.css">
+  <link rel="stylesheet" href="src/features/superlatives/superlatives.css">
+  <link rel="stylesheet" href="src/features/memories/memories.css">
+  <link rel="stylesheet" href="src/features/admin/admin.css">
 </head>
 <body>
 
   <!-- Top Navigation Bar -->
   <nav class="topnav">
-    <div class="brand">
-      <img src="images/apsacs-logo.png" alt="APSACS Logo" class="crest">
+    <div class="brand" onclick="window.location.hash='#home'">
+      <img src="images/apsacs-logo.png" alt="APSACS Crest" class="crest">
       <div class="brand-text">
         <div class="name">APSACS Skardu</div>
         <div class="place">Gilgit-Baltistan</div>
       </div>
     </div>
+
     <div class="navlinks">
       <button class="active" data-screen="home">Home</button>
       <button data-screen="class">Class</button>
@@ -27,7 +49,11 @@
       <button data-screen="school">About School</button>
       <button data-screen="superlatives">Superlatives</button>
       <button data-screen="memories">Memory Wall</button>
+      <button data-screen="admin" class="admin-nav-item" style="display:none;">Admin</button>
     </div>
+
+    <!-- Auth Widget -->
+    <div class="nav-auth"></div>
   </nav>
 
   <!-- Screen 1: Home -->
@@ -40,8 +66,8 @@
         <div class="motto">"I Shall Rise &amp; Shine"</div>
         <p class="sub">Every student in our class — their story, their interests, their face — kept in one place, built by a student, for the class.</p>
         <div class="hero-ctas">
-          <button class="btn btn-primary">Browse the class &rarr;</button>
-          <button class="btn btn-ghost">About the school</button>
+          <button class="btn btn-primary" id="hero-browse-btn">Browse the class &rarr;</button>
+          <button class="btn btn-ghost" id="hero-about-btn">About the school</button>
         </div>
       </div>
     </section>
@@ -49,25 +75,18 @@
 
   <!-- Screen 2: Class Information -->
   <div class="screen" id="class">
-    <section class="section" style="padding-top:44px;">
+    <section class="section">
       <div class="section-head">
         <h2>Our class</h2>
         <span class="tag mono">SESSION 2025&ndash;26</span>
       </div>
-      <div class="class-banner">
-        <div class="class-banner-content">
-          <div class="k">Class Teacher</div>
-          <h3>Grade 10 &mdash; Section B</h3>
-          <div class="meta">Ma'am Farida Baig &middot; Room 14 &middot; FBISE Secondary Science Track</div>
-        </div>
-        <div class="class-avatar">10B</div>
-      </div>
+      <div id="class-banner-container"></div>
     </section>
   </div>
 
   <!-- Screen 3: Students Directory -->
   <div class="screen" id="students">
-    <section class="section" style="padding-top:44px;">
+    <section class="section">
       <div class="section-head">
         <h2>Meet the class</h2>
         <span class="tag mono">STUDENT PROFILES</span>
@@ -90,7 +109,7 @@
         </div>
       </div>
 
-      <!-- Student Cards Grid (Rendered Dynamically via app.js) -->
+      <!-- Student Cards Grid (Rendered Dynamically via students.js) -->
       <div class="grid"></div>
 
       <div class="submit-band">
@@ -103,21 +122,22 @@
 
   <!-- Screen 4: Student Profile Detail View -->
   <div class="screen" id="profile">
-    <section class="section" style="padding-top:44px;">
-      <div class="section-head" style="align-items: center;">
-        <div style="display:flex; align-items:center; gap:14px; flex-wrap:wrap;">
-          <button class="btn btn-ghost" id="back-to-students-btn" style="color:var(--pine); border-color:var(--line); padding:8px 14px; font-size:13px;">
+    <section class="section">
+      <div class="section-head section-head-center">
+        <div class="profile-nav-group">
+          <button class="btn btn-outline btn-sm" id="back-to-students-btn">
             &larr; Back to Students
           </button>
           <h2>Student Profile</h2>
         </div>
-        <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
-          <select id="profile-student-select" style="padding:8px 12px; border-radius:8px; border:1px solid var(--line); font-family:inherit; font-size:13.5px; background:#fff; color:var(--ink); cursor:pointer;">
+        <div class="profile-nav-group">
+          <select id="profile-student-select" class="profile-selector">
             <!-- Populated dynamically -->
           </select>
           <span class="tag mono" id="profile-roll-tag">ROLL 07</span>
         </div>
       </div>
+
       <div class="profile">
         <div>
           <div class="profile-photo">
@@ -130,12 +150,7 @@
           <div class="prole">GRADE 10 &middot; SECTION B &middot; ROLL NO. 07</div>
           <p class="pbio">Ali's the one who keeps the class cricket team's overs straight and can recall K2 base camp routes from memory. Loves a good debate almost as much as a good six.</p>
           <div class="field-grid">
-            <div class="field"><div class="flabel">Favourite subject</div><div class="fval">Physics</div></div>
-            <div class="field"><div class="flabel">Hobbies</div><div class="fval">Cricket, Chess, Trekking</div></div>
-            <div class="field"><div class="flabel">Favourite quote</div><div class="fval">"Slow and steady wins the climb."</div></div>
-            <div class="field"><div class="flabel">Birthday</div><div class="fval">14 March</div></div>
-            <div class="field"><div class="flabel">Fun fact</div><div class="fval">Has hiked to Deosai twice</div></div>
-            <div class="field"><div class="flabel">Contact</div><div class="fval">Instagram @ali.hassan</div></div>
+            <!-- Rendered dynamically -->
           </div>
         </div>
       </div>
@@ -144,15 +159,15 @@
 
   <!-- Screen 5: About School -->
   <div class="screen" id="school">
-    <section class="section" style="padding-top:44px;">
+    <section class="section">
       <div class="section-head">
         <div>
           <h2>Army Public School &amp; College Skardu</h2>
-          <p style="color:#6b7268; margin-top:6px; font-size:14.5px;">APSACS Secretariat Network &middot; Affiliated with FBISE Islamabad &middot; Skardu, Gilgit-Baltistan</p>
+          <p class="section-head-subtitle">APSACS Secretariat Network &middot; Affiliated with FBISE Islamabad &middot; Skardu, Gilgit-Baltistan</p>
         </div>
-        <div style="display:flex; gap:10px; flex-wrap:wrap;">
-          <button class="btn btn-primary" id="open-add-photo-btn" style="padding:10px 16px; font-size:13px;">+ Add Picture</button>
-          <button class="btn btn-ghost" id="open-add-teacher-btn" style="color:var(--pine); border-color:var(--line); padding:10px 16px; font-size:13px;">+ Add Teacher</button>
+        <div class="section-actions">
+          <button class="btn btn-primary btn-sm" id="open-add-photo-btn">+ Add Picture</button>
+          <button class="btn btn-outline btn-sm" id="open-add-teacher-btn">+ Add Teacher</button>
         </div>
       </div>
 
@@ -188,13 +203,13 @@
 
       <!-- Campus Photo Gallery -->
       <div class="sub-header">
-        <h3 style="font-size:22px; color:var(--pine);">Campus Photo Gallery</h3>
+        <h3>Campus Photo Gallery</h3>
       </div>
       <div class="gallery-grid" id="gallery-container"></div>
 
       <!-- Faculty & Teachers Section -->
       <div class="sub-header">
-        <h3 style="font-size:22px; color:var(--pine);">Faculty &amp; Teachers</h3>
+        <h3>Faculty &amp; Teachers</h3>
       </div>
       <div class="teachers-grid" id="teachers-container"></div>
     </section>
@@ -202,13 +217,13 @@
 
   <!-- Screen 6: Class Superlatives -->
   <div class="screen" id="superlatives">
-    <section class="section" style="padding-top:44px;">
+    <section class="section">
       <div class="section-head">
         <div>
           <h2>Class superlatives</h2>
-          <p style="color:#6b7268; margin-top:6px; font-size:14.5px;">Voted on by the class &middot; not official, just honest</p>
+          <p class="section-head-subtitle">Voted on by the class &middot; not official, just honest</p>
         </div>
-        <button class="btn btn-primary" id="open-add-superlative-btn" style="padding:10px 16px; font-size:13px;">+ Add Superlative</button>
+        <button class="btn btn-primary btn-sm" id="open-add-superlative-btn">+ Add Superlative</button>
       </div>
       <div class="superlatives-grid" id="superlatives-container"></div>
     </section>
@@ -216,37 +231,64 @@
 
   <!-- Screen 7: Memory Wall -->
   <div class="screen" id="memories">
-    <section class="section" style="padding-top:44px;">
+    <section class="section">
       <div class="section-head">
         <div>
           <h2>Memory wall</h2>
-          <p style="color:#6b7268; margin-top:6px; font-size:14.5px;">Things actually said in class &middot; screenshot-worthy moments</p>
+          <p class="section-head-subtitle">Things actually said in class &middot; screenshot-worthy moments</p>
         </div>
-        <button class="btn btn-primary" id="open-add-memory-btn" style="padding:10px 16px; font-size:13px;">+ Add Memory</button>
+        <button class="btn btn-primary btn-sm" id="open-add-memory-btn">+ Add Memory</button>
       </div>
       <div class="memory-grid" id="memories-container"></div>
     </section>
   </div>
 
+  <!-- Screen 8: Admin Panel (Protected) -->
+  <div class="screen" id="admin">
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <h2>Class Administrator Panel <span class="admin-badge">ADMIN</span></h2>
+          <p class="section-head-subtitle">Manage class moderation, reports, and emergency controls</p>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h3>Flagged &amp; Reported Items</h3>
+        <div id="admin-reports-list">
+          <!-- Populated by admin.js -->
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h3>System Status</h3>
+        <p style="font-size:14px; color:#576057; margin-bottom:12px;">School Hub is running in synchronized client state with Firestore security rules enforcement.</p>
+        <div style="font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--emerald);">
+          Active Class: 10-B &middot; Session: 2025-26 &middot; Node: APSACS Skardu
+        </div>
+      </div>
+    </section>
+  </div>
+
   <!-- Modal for Adding Student Profile -->
   <div class="modal-overlay" id="add-student-modal">
-    <div class="modal-box" style="max-width:560px;">
+    <div class="modal-box">
       <div class="modal-header">
         <h3>Add Your Student Profile</h3>
         <button class="modal-close" id="close-student-modal">&times;</button>
       </div>
       <form id="add-student-form">
         <div class="form-group">
-          <label>Full Name</label>
-          <input type="text" id="student-name" placeholder="e.g. Tariq Mehmood" required>
+          <label for="student-name">Full Name</label>
+          <input type="text" id="student-name" placeholder="e.g. Tariq Mehmood" required maxlength="80">
         </div>
-        <div style="display:flex; gap:12px;">
-          <div class="form-group" style="flex:1;">
-            <label>Roll Number</label>
-            <input type="text" id="student-roll" placeholder="e.g. 42" required>
+        <div class="form-row">
+          <div class="form-group form-col">
+            <label for="student-roll">Roll Number</label>
+            <input type="text" id="student-roll" placeholder="e.g. 42" required maxlength="10">
           </div>
-          <div class="form-group" style="flex:1;">
-            <label>Category</label>
+          <div class="form-group form-col">
+            <label for="student-category">Category</label>
             <select id="student-category">
               <option value="Sports">Sports</option>
               <option value="Music">Music</option>
@@ -256,38 +298,44 @@
           </div>
         </div>
         <div class="form-group">
-          <label>Hobbies / Hype Tags</label>
-          <input type="text" id="student-tags" placeholder="e.g. Cricket &middot; Gaming" required>
+          <label for="student-tags">Hobbies / Hype Tags</label>
+          <input type="text" id="student-tags" placeholder="e.g. Cricket &middot; Gaming" required maxlength="100">
         </div>
         <div class="form-group">
-          <label>Short Bio</label>
-          <textarea id="student-bio" rows="2" placeholder="Tell the class a bit about yourself..." required></textarea>
+          <label for="student-bio">Short Bio</label>
+          <textarea id="student-bio" rows="2" placeholder="Tell the class a bit about yourself..." required maxlength="500"></textarea>
         </div>
-        <div style="display:flex; gap:12px;">
-          <div class="form-group" style="flex:1;">
-            <label>Favourite Subject</label>
-            <input type="text" id="student-subject" placeholder="e.g. Mathematics" required>
+        <div class="form-row">
+          <div class="form-group form-col">
+            <label for="student-subject">Favourite Subject</label>
+            <input type="text" id="student-subject" placeholder="e.g. Mathematics" required maxlength="60">
           </div>
-          <div class="form-group" style="flex:1;">
-            <label>Birthday</label>
-            <input type="text" id="student-birthday" placeholder="e.g. 14 March" required>
+          <div class="form-group form-col">
+            <label for="student-birthday">Birthday <span class="privacy-badge">Optional</span></label>
+            <input type="text" id="student-birthday" placeholder="e.g. 14 March" maxlength="40">
+            <label style="display:flex; align-items:center; gap:6px; margin-top:6px; font-weight:normal; text-transform:none; font-size:12px; cursor:pointer;">
+              <input type="checkbox" id="student-show-birthday" style="width:auto;"> Show birthday on profile
+            </label>
           </div>
         </div>
         <div class="form-group">
-          <label>Favourite Quote</label>
-          <input type="text" id="student-quote" placeholder='"Aim high and dare to rise."' required>
+          <label for="student-quote">Favourite Quote</label>
+          <input type="text" id="student-quote" placeholder='"Aim high and dare to rise."' required maxlength="140">
         </div>
-        <div style="display:flex; gap:12px;">
-          <div class="form-group" style="flex:1;">
-            <label>Fun Fact</label>
-            <input type="text" id="student-fact" placeholder="e.g. Can solve Rubik's cube in 30s" required>
+        <div class="form-row">
+          <div class="form-group form-col">
+            <label for="student-fact">Fun Fact</label>
+            <input type="text" id="student-fact" placeholder="e.g. Can solve Rubik's cube in 30s" required maxlength="120">
           </div>
-          <div class="form-group" style="flex:1;">
-            <label>Contact / Handle</label>
-            <input type="text" id="student-contact" placeholder="e.g. Instagram @tariq.m" required>
+          <div class="form-group form-col">
+            <label for="student-contact">Contact Handle <span class="privacy-badge">Optional</span></label>
+            <input type="text" id="student-contact" placeholder="e.g. Instagram @tariq.m" maxlength="60">
+            <label style="display:flex; align-items:center; gap:6px; margin-top:6px; font-weight:normal; text-transform:none; font-size:12px; cursor:pointer;">
+              <input type="checkbox" id="student-show-contact" style="width:auto;"> Show contact publicly
+            </label>
           </div>
         </div>
-        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Publish My Profile</button>
+        <button type="submit" class="btn btn-primary btn-full">Publish My Profile</button>
       </form>
     </div>
   </div>
@@ -301,14 +349,14 @@
       </div>
       <form id="add-photo-form">
         <div class="form-group">
-          <label>Caption / Title</label>
-          <input type="text" id="photo-title" placeholder="e.g. Annual Sports Day Opening Ceremony" required>
+          <label for="photo-title">Caption / Title</label>
+          <input type="text" id="photo-title" placeholder="e.g. Annual Sports Day Opening Ceremony" required maxlength="120">
         </div>
         <div class="form-group">
-          <label>Image URL or File Path</label>
+          <label for="photo-url">Image URL or File Path</label>
           <input type="text" id="photo-url" placeholder="images/apsacs-logo.png or image URL" required>
         </div>
-        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Add to Gallery</button>
+        <button type="submit" class="btn btn-primary btn-full">Add to Gallery</button>
       </form>
     </div>
   </div>
@@ -322,26 +370,26 @@
       </div>
       <form id="add-teacher-form">
         <div class="form-group">
-          <label>Teacher Name</label>
-          <input type="text" id="teacher-name" placeholder="e.g. Ma'am Farida Baig" required>
+          <label for="teacher-name">Teacher Name</label>
+          <input type="text" id="teacher-name" placeholder="e.g. Ma'am Farida Baig" required maxlength="80">
         </div>
         <div class="form-group">
-          <label>Subject &amp; Role</label>
-          <input type="text" id="teacher-subject" placeholder="e.g. Physics &middot; Class Teacher 10B" required>
+          <label for="teacher-subject">Subject &amp; Role</label>
+          <input type="text" id="teacher-subject" placeholder="e.g. Physics &middot; Class Teacher 10B" required maxlength="80">
         </div>
         <div class="form-group">
-          <label>Office / Room</label>
-          <input type="text" id="teacher-room" placeholder="e.g. Room 14 or Science Lab" required>
+          <label for="teacher-room">Office / Room</label>
+          <input type="text" id="teacher-room" placeholder="e.g. Room 14 or Science Lab" required maxlength="50">
         </div>
         <div class="form-group">
-          <label>Qualification &amp; Experience</label>
-          <input type="text" id="teacher-qual" placeholder="e.g. M.Sc. Physics &middot; Senior Educator" required>
+          <label for="teacher-qual">Qualification &amp; Experience</label>
+          <input type="text" id="teacher-qual" placeholder="e.g. M.Sc. Physics &middot; Senior Educator" required maxlength="100">
         </div>
         <div class="form-group">
-          <label>Photo URL (Optional)</label>
+          <label for="teacher-img">Photo URL (Optional)</label>
           <input type="text" id="teacher-img" placeholder="images/apsacs-logo.png or image URL">
         </div>
-        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Add Teacher</button>
+        <button type="submit" class="btn btn-primary btn-full">Add Teacher</button>
       </form>
     </div>
   </div>
@@ -355,22 +403,22 @@
       </div>
       <form id="add-superlative-form">
         <div class="form-group">
-          <label>Icon (single emoji)</label>
+          <label for="superlative-icon">Icon (single emoji)</label>
           <input type="text" id="superlative-icon" placeholder="e.g. 🏆" maxlength="4" required>
         </div>
         <div class="form-group">
-          <label>Title</label>
-          <input type="text" id="superlative-title" placeholder="e.g. Most Likely to Be Late" required>
+          <label for="superlative-title">Title</label>
+          <input type="text" id="superlative-title" placeholder="e.g. Most Likely to Be Late" required maxlength="80">
         </div>
         <div class="form-group">
-          <label>Winner</label>
-          <input type="text" id="superlative-winner" placeholder="e.g. Hamza Wali" required>
+          <label for="superlative-winner">Winner</label>
+          <input type="text" id="superlative-winner" placeholder="e.g. Hamza Wali" required maxlength="80">
         </div>
         <div class="form-group">
-          <label>Why (optional, keep it kind)</label>
-          <input type="text" id="superlative-reason" placeholder="e.g. Chess strategy over punctuality, apparently.">
+          <label for="superlative-reason">Why (optional, keep it kind)</label>
+          <input type="text" id="superlative-reason" placeholder="e.g. Chess strategy over punctuality, apparently." maxlength="140">
         </div>
-        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Add Superlative</button>
+        <button type="submit" class="btn btn-primary btn-full">Add Superlative</button>
       </form>
     </div>
   </div>
@@ -384,25 +432,25 @@
       </div>
       <form id="add-memory-form">
         <div class="form-group">
-          <label>What was said / happened</label>
-          <textarea id="memory-quote" rows="2" placeholder="e.g. Sir, the Wi-Fi in the STEM lab has more lag than my chess moves." required></textarea>
+          <label for="memory-quote">What was said / happened</label>
+          <textarea id="memory-quote" rows="2" placeholder="e.g. Sir, the Wi-Fi in the STEM lab has more lag than my chess moves." required maxlength="300"></textarea>
         </div>
         <div class="form-group">
-          <label>Who said it</label>
-          <input type="text" id="memory-author" placeholder="e.g. Hamza Wali" required>
+          <label for="memory-author">Who said it</label>
+          <input type="text" id="memory-author" placeholder="e.g. Hamza Wali" required maxlength="60">
         </div>
         <div class="form-group">
-          <label>Context (optional)</label>
-          <input type="text" id="memory-context" placeholder="e.g. During Computer Science period">
+          <label for="memory-context">Context (optional)</label>
+          <input type="text" id="memory-context" placeholder="e.g. During Computer Science period" maxlength="80">
         </div>
-        <button type="submit" class="btn btn-primary" style="width:100%; justify-content:center;">Add to Wall</button>
+        <button type="submit" class="btn btn-primary btn-full">Add to Wall</button>
       </form>
     </div>
   </div>
 
   <footer>APSACS Skardu &mdash; Army Public School &amp; College &middot; "I Shall Rise &amp; Shine" &middot; Phone: 05831-50248 &middot; FBISE Islamabad Affiliated</footer>
 
-  <!-- App Script -->
-  <script src="js/app.js"></script>
+  <!-- App Modular Entry Point -->
+  <script type="module" src="src/main.js"></script>
 </body>
 </html>
