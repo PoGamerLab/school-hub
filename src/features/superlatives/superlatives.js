@@ -84,7 +84,6 @@ export function initSuperlatives() {
       const nomineeRow = e.target.closest('.nominee-row');
       if (!nomineeRow) return;
 
-      const user = authService.getCurrentUser();
       if (!user) {
         showToast('Please sign in with Google to vote on superlatives.', 'error');
         return;
