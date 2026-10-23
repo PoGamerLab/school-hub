@@ -4,7 +4,7 @@ import { authService } from '../../core/auth/auth.js';
 import { renderStudentCard, renderProfileView } from './students.render.js';
 import { extractInitials } from '../../core/utils/ids.js';
 import { showToast } from '../../components/toast/toast.js';
-import { subscribeClassCollection, createDocument } from '../../core/db/firestore.js';
+import { subscribeClassCollection, unsubscribeCollection, createDocument } from '../../core/db/firestore.js';
 
 export function initStudents() {
   const gridContainer = document.querySelector('.grid');
@@ -14,6 +14,10 @@ export function initStudents() {
   const backToStudentsBtn = document.getElementById('back-to-students-btn');
   const addStudentForm = document.getElementById('add-student-form');
   const addStudentModal = document.getElementById('add-student-modal');
+  const loadMoreContainer = document.getElementById('students-load-more-container');
+  const loadMoreBtn = document.getElementById('students-load-more-btn');
+
+  let activeSub = null;
 
   function getFilteredStudents() {
     const students = store.get('students') || [];
@@ -79,7 +83,18 @@ export function initStudents() {
     }
   }
 
-  // Debounced search for smooth typing
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', async () => {
+      if (activeSub && activeSub.loadMore) {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.textContent = 'Loading...';
+        await activeSub.loadMore();
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.textContent = 'Load More Students';
+      }
+    });
+  }
+
   if (searchInput) {
     let searchTimer = null;
     searchInput.addEventListener('input', (e) => {
@@ -122,7 +137,6 @@ export function initStudents() {
     });
   }
 
-  // Handle Form Submission
   if (addStudentForm) {
     addStudentForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -163,12 +177,8 @@ export function initStudents() {
         showContact
       };
 
-      if (showBirthday && birthday) {
-        payload.birthday = birthday;
-      }
-      if (showContact && contact) {
-        payload.contact = contact;
-      }
+      if (showBirthday && birthday) payload.birthday = birthday;
+      if (showContact && contact) payload.contact = contact;
 
       try {
         await createDocument('students', payload, user.uid);
@@ -183,18 +193,40 @@ export function initStudents() {
     });
   }
 
-  // Subscribe to students in current class
-  function attachSubscription() {
+  // P0-6: Screen-scoped subscription functions
+  async function startSubscription() {
     const classId = store.get('currentClassId') || '10-b';
-    subscribeClassCollection('students', classId, () => {
+    activeSub = await subscribeClassCollection('students', classId, (_items, hasMore) => {
       renderGrid();
       updateDropdown();
       updateProfile(store.get('currentStudentId'));
+      if (loadMoreContainer) {
+        loadMoreContainer.classList.toggle('hidden', !hasMore);
+      }
     });
   }
 
-  store.subscribe('currentClassId', attachSubscription);
-  store.subscribe('currentStudentId', (id) => updateProfile(id));
+  function stopSubscription() {
+    unsubscribeCollection('students');
+    activeSub = null;
+    if (loadMoreContainer) loadMoreContainer.classList.add('hidden');
+  }
 
-  attachSubscription();
+  router.registerScreenHook('students', {
+    onEnter: startSubscription,
+    onLeave: stopSubscription
+  });
+
+  router.registerScreenHook('profile', {
+    onEnter: () => { if (!activeSub) startSubscription(); },
+    onLeave: () => { if (router.activeScreenId !== 'students') stopSubscription(); }
+  });
+
+  store.subscribe('currentClassId', () => {
+    if (router.activeScreenId === 'students' || router.activeScreenId === 'profile') {
+      startSubscription();
+    }
+  });
+
+  store.subscribe('currentStudentId', (id) => updateProfile(id));
 }

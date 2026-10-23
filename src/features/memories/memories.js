@@ -1,13 +1,18 @@
 import { store } from '../../core/store/store.js';
+import { router } from '../../core/router/router.js';
 import { authService } from '../../core/auth/auth.js';
 import { renderMemoryCard } from './memories.render.js';
 import { showToast } from '../../components/toast/toast.js';
-import { subscribeClassCollection, createDocument, setOwnMapKey } from '../../core/db/firestore.js';
+import { subscribeClassCollection, unsubscribeCollection, createDocument, setOwnMapKey } from '../../core/db/firestore.js';
 
 export function initMemories() {
   const container = document.getElementById('memories-container');
   const addMemoryForm = document.getElementById('add-memory-form');
   const addMemoryModal = document.getElementById('add-memory-modal');
+  const loadMoreContainer = document.getElementById('memories-load-more-container');
+  const loadMoreBtn = document.getElementById('memories-load-more-btn');
+
+  let activeSub = null;
 
   function render() {
     if (!container) return;
@@ -16,7 +21,6 @@ export function initMemories() {
     const uid = user ? user.uid : null;
     const isAdmin = store.get('isAdmin');
 
-    // Dynamic auto-hide: 3 or more reports hide from public view unless admin reviewed
     const visibleMemories = memories.filter(m => {
       const reportCount = Object.keys(m.reports || {}).length;
       return isAdmin || m.adminReviewed || reportCount < 3;
@@ -36,7 +40,18 @@ export function initMemories() {
     container.innerHTML = visibleMemories.map(mem => renderMemoryCard(mem, uid)).join('');
   }
 
-  // Handle reactions and reports via event delegation
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', async () => {
+      if (activeSub && activeSub.loadMore) {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.textContent = 'Loading...';
+        await activeSub.loadMore();
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.textContent = 'Load More Memories';
+      }
+    });
+  }
+
   if (container) {
     container.addEventListener('click', async (e) => {
       const user = authService.getCurrentUser();
@@ -49,14 +64,14 @@ export function initMemories() {
         }
 
         const memoryId = reactionBtn.dataset.id;
-        const reactionType = reactionBtn.dataset.type; // 'laugh' | 'heart' | 'fire'
+        const reactionType = reactionBtn.dataset.type;
         const hasReacted = reactionBtn.classList.contains('active');
 
         try {
           if (hasReacted) {
-            await setOwnMapKey('memories', memoryId, 'reactions', null);
+            await setOwnMapKey('memories', memoryId, 'reactions', user.uid, null);
           } else {
-            await setOwnMapKey('memories', memoryId, 'reactions', reactionType);
+            await setOwnMapKey('memories', memoryId, 'reactions', user.uid, reactionType);
           }
           render();
         } catch (err) {
@@ -79,7 +94,7 @@ export function initMemories() {
         }
 
         try {
-          await setOwnMapKey('memories', memoryId, 'reports', true);
+          await setOwnMapKey('memories', memoryId, 'reports', user.uid, true);
           showToast('Thank you. Entry flagged for moderator review.');
           render();
         } catch (err) {
@@ -125,14 +140,30 @@ export function initMemories() {
     });
   }
 
-  function attachSubscription() {
+  // P0-6: Screen-scoped subscription
+  async function startSubscription() {
     const classId = store.get('currentClassId') || '10-b';
-    subscribeClassCollection('memories', classId, () => {
+    activeSub = await subscribeClassCollection('memories', classId, (_items, hasMore) => {
       render();
+      if (loadMoreContainer) {
+        loadMoreContainer.classList.toggle('hidden', !hasMore);
+      }
     });
   }
 
-  store.subscribe('currentClassId', attachSubscription);
+  function stopSubscription() {
+    unsubscribeCollection('memories');
+    activeSub = null;
+    if (loadMoreContainer) loadMoreContainer.classList.add('hidden');
+  }
+
+  router.registerScreenHook('memories', {
+    onEnter: startSubscription,
+    onLeave: stopSubscription
+  });
+
+  store.subscribe('currentClassId', () => {
+    if (router.activeScreenId === 'memories') startSubscription();
+  });
   store.subscribe('user', render);
-  attachSubscription();
 }

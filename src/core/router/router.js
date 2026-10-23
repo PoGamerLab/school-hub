@@ -1,17 +1,14 @@
 /**
- * Hash-based router with per-screen access control.
+ * Hash-based router with per-screen access control and screen lifecycle hooks.
  *
  * P0-2: Guard runs before any screen renders.
- *   - Screens declare an access level: 'public' | 'member' | 'admin'.
- *   - While auth state is loading a neutral loading screen is shown.
- *   - Admin screen DOM is not injected until admin is confirmed.
- *   - Non-authorised navigation silently redirects to 'home' with a toast.
+ * P0-6: Screen hooks (onEnter / onLeave) start listeners only when a screen
+ *       is visible and stop them when leaving. Home subscribes to nothing.
  */
 
 import { store } from '../store/store.js';
 import { showToast } from '../../components/toast/toast.js';
 
-/** Map of screenId → minimum access level required. */
 const SCREEN_ACCESS = {
   home:         'public',
   class:        'member',
@@ -28,10 +25,17 @@ class Router {
     this.navButtons = [];
     this.screens = [];
     this.initialized = false;
-    /** Set to true once authService.ready() resolves. */
     this.authReady = false;
-    /** Saved hash to restore after auth resolves. */
     this._pendingHash = null;
+    this.activeScreenId = null;
+    this.screenHooks = new Map();
+  }
+
+  registerScreenHook(screenId, { onEnter, onLeave }) {
+    if (!this.screenHooks.has(screenId)) {
+      this.screenHooks.set(screenId, []);
+    }
+    this.screenHooks.get(screenId).push({ onEnter, onLeave });
   }
 
   init() {
@@ -52,12 +56,10 @@ class Router {
     this.handleHashChange();
   }
 
-  /** Called by main.js after authService.ready() resolves. */
   onAuthReady() {
     this.authReady = true;
     this._hideLoading();
 
-    // Re-route to where the user originally wanted to go
     const target = this._pendingHash || window.location.hash.replace('#', '') || 'home';
     this._pendingHash = null;
     this.switchTo(target, false);
@@ -75,7 +77,6 @@ class Router {
     }
 
     if (!this.authReady) {
-      // Save what was requested; show loading until auth is resolved
       this._pendingHash = screenId || 'home';
       return;
     }
@@ -95,7 +96,6 @@ class Router {
     }
   }
 
-  /** Returns the effective access level the current user has. */
   _userLevel() {
     const user = store.get('user');
     if (!user) return 'public';
@@ -118,7 +118,6 @@ class Router {
       return;
     }
 
-    // Guard: redirect if user lacks access (P0-2)
     if (!this._accessAllowed(screenId)) {
       const user = store.get('user');
       const required = SCREEN_ACCESS[screenId] || 'member';
@@ -127,7 +126,6 @@ class Router {
       } else if (required === 'member' && !user) {
         showToast('Please sign in to view this page.', 'info');
       }
-      // Replace the hash so Back button works correctly
       history.replaceState(null, '', '#home');
       screenId = 'home';
     }
@@ -147,17 +145,29 @@ class Router {
       screenId = 'home';
     }
 
-    // Re-query nav buttons to pick up any that were added dynamically
     this.navButtons = document.querySelectorAll('.navlinks button, .mobile-nav-links button');
     this.navButtons.forEach(btn => {
       btn.classList.toggle('active', btn.dataset.screen === screenId);
     });
 
+    // P0-6: Trigger lifecycle hooks (leave previous screen, enter new screen)
+    const prevScreenId = this.activeScreenId;
+    if (prevScreenId && prevScreenId !== screenId) {
+      const prevHooks = this.screenHooks.get(prevScreenId);
+      if (prevHooks) {
+        prevHooks.forEach(hook => hook.onLeave && hook.onLeave());
+      }
+    }
+
+    this.activeScreenId = screenId;
+    const currentHooks = this.screenHooks.get(screenId);
+    if (currentHooks) {
+      currentHooks.forEach(hook => hook.onEnter && hook.onEnter());
+    }
+
     store.set('activeScreen', screenId, false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
-
-  // ── Loading screen helpers ────────────────────────────────────────────────
 
   _showLoading() {
     let el = document.getElementById('app-loading-screen');
@@ -169,7 +179,6 @@ class Router {
       document.body.appendChild(el);
     }
     el.classList.remove('hidden');
-    // Hide actual screens while loading
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   }
 

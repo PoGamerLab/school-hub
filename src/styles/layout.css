@@ -212,6 +212,18 @@
   margin-top: 24px;
 }
 
+/* Pagination Load More (P0-5) */
+.load-more-container {
+  display: flex;
+  justify-content: center;
+  margin: 24px 0 16px;
+  width: 100%;
+}
+
+.load-more-container.hidden {
+  display: none !important;
+}
+
 /* Footer */
 footer {
   padding: 24px 20px;

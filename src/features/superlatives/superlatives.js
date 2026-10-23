@@ -1,13 +1,18 @@
 import { store } from '../../core/store/store.js';
+import { router } from '../../core/router/router.js';
 import { authService } from '../../core/auth/auth.js';
 import { renderSuperlativeCard } from './superlatives.render.js';
 import { showToast } from '../../components/toast/toast.js';
-import { subscribeClassCollection, createDocument, setOwnMapKey } from '../../core/db/firestore.js';
+import { subscribeClassCollection, unsubscribeCollection, createDocument, setOwnMapKey } from '../../core/db/firestore.js';
 
 export function initSuperlatives() {
   const container = document.getElementById('superlatives-container');
   const addSuperlativeForm = document.getElementById('add-superlative-form');
   const addSuperlativeModal = document.getElementById('add-superlative-modal');
+  const loadMoreContainer = document.getElementById('superlatives-load-more-container');
+  const loadMoreBtn = document.getElementById('superlatives-load-more-btn');
+
+  let activeSub = null;
 
   function render() {
     if (!container) return;
@@ -29,7 +34,18 @@ export function initSuperlatives() {
     container.innerHTML = superlatives.map(item => renderSuperlativeCard(item, currentUid)).join('');
   }
 
-  // Handle single-vote voting and un-voting via event delegation
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', async () => {
+      if (activeSub && activeSub.loadMore) {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.textContent = 'Loading...';
+        await activeSub.loadMore();
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.textContent = 'Load More Superlatives';
+      }
+    });
+  }
+
   if (container) {
     container.addEventListener('click', async (e) => {
       const nomineeRow = e.target.closest('.nominee-row');
@@ -48,10 +64,10 @@ export function initSuperlatives() {
 
       try {
         if (isCurrentlyVoted) {
-          await setOwnMapKey('superlatives', superlativeId, 'votes', null);
+          await setOwnMapKey('superlatives', superlativeId, 'votes', user.uid, null);
           showToast('Vote removed.');
         } else {
-          await setOwnMapKey('superlatives', superlativeId, 'votes', nomineeName);
+          await setOwnMapKey('superlatives', superlativeId, 'votes', user.uid, nomineeName);
           showToast(`Voted for ${nomineeName}!`, 'success');
         }
         render();
@@ -102,14 +118,30 @@ export function initSuperlatives() {
     });
   }
 
-  function attachSubscription() {
+  // P0-6: Screen-scoped subscription
+  async function startSubscription() {
     const classId = store.get('currentClassId') || '10-b';
-    subscribeClassCollection('superlatives', classId, () => {
+    activeSub = await subscribeClassCollection('superlatives', classId, (_items, hasMore) => {
       render();
+      if (loadMoreContainer) {
+        loadMoreContainer.classList.toggle('hidden', !hasMore);
+      }
     });
   }
 
-  store.subscribe('currentClassId', attachSubscription);
+  function stopSubscription() {
+    unsubscribeCollection('superlatives');
+    activeSub = null;
+    if (loadMoreContainer) loadMoreContainer.classList.add('hidden');
+  }
+
+  router.registerScreenHook('superlatives', {
+    onEnter: startSubscription,
+    onLeave: stopSubscription
+  });
+
+  store.subscribe('currentClassId', () => {
+    if (router.activeScreenId === 'superlatives') startSubscription();
+  });
   store.subscribe('user', render);
-  attachSubscription();
 }

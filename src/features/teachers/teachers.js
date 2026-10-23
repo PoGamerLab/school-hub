@@ -1,14 +1,19 @@
 import { store } from '../../core/store/store.js';
+import { router } from '../../core/router/router.js';
 import { authService } from '../../core/auth/auth.js';
 import { renderTeacherCard } from './teachers.render.js';
 import { extractInitials } from '../../core/utils/ids.js';
 import { showToast } from '../../components/toast/toast.js';
-import { subscribeClassCollection, createDocument } from '../../core/db/firestore.js';
+import { subscribeClassCollection, unsubscribeCollection, createDocument } from '../../core/db/firestore.js';
 
 export function initTeachers() {
   const container = document.getElementById('teachers-container');
   const addTeacherForm = document.getElementById('add-teacher-form');
   const addTeacherModal = document.getElementById('add-teacher-modal');
+  const loadMoreContainer = document.getElementById('teachers-load-more-container');
+  const loadMoreBtn = document.getElementById('teachers-load-more-btn');
+
+  let activeSub = null;
 
   function render() {
     if (!container) return;
@@ -24,6 +29,18 @@ export function initTeachers() {
       return;
     }
     container.innerHTML = teachers.map(tch => renderTeacherCard(tch)).join('');
+  }
+
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', async () => {
+      if (activeSub && activeSub.loadMore) {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.textContent = 'Loading...';
+        await activeSub.loadMore();
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.textContent = 'Load More Faculty';
+      }
+    });
   }
 
   if (addTeacherForm) {
@@ -64,13 +81,29 @@ export function initTeachers() {
     });
   }
 
-  function attachSubscription() {
+  // P0-6: Screen-scoped subscription on school screen
+  async function startSubscription() {
     const classId = store.get('currentClassId') || '10-b';
-    subscribeClassCollection('teachers', classId, () => {
+    activeSub = await subscribeClassCollection('teachers', classId, (_items, hasMore) => {
       render();
+      if (loadMoreContainer) {
+        loadMoreContainer.classList.toggle('hidden', !hasMore);
+      }
     });
   }
 
-  store.subscribe('currentClassId', attachSubscription);
-  attachSubscription();
+  function stopSubscription() {
+    unsubscribeCollection('teachers');
+    activeSub = null;
+    if (loadMoreContainer) loadMoreContainer.classList.add('hidden');
+  }
+
+  router.registerScreenHook('school', {
+    onEnter: startSubscription,
+    onLeave: stopSubscription
+  });
+
+  store.subscribe('currentClassId', () => {
+    if (router.activeScreenId === 'school') startSubscription();
+  });
 }

@@ -1,13 +1,18 @@
 import { store } from '../../core/store/store.js';
+import { router } from '../../core/router/router.js';
 import { authService } from '../../core/auth/auth.js';
 import { renderGalleryCard } from './gallery.render.js';
 import { showToast } from '../../components/toast/toast.js';
-import { subscribeClassCollection, createDocument } from '../../core/db/firestore.js';
+import { subscribeClassCollection, unsubscribeCollection, createDocument } from '../../core/db/firestore.js';
 
 export function initGallery() {
   const container = document.getElementById('gallery-container');
   const addPhotoForm = document.getElementById('add-photo-form');
   const addPhotoModal = document.getElementById('add-photo-modal');
+  const loadMoreContainer = document.getElementById('gallery-load-more-container');
+  const loadMoreBtn = document.getElementById('gallery-load-more-btn');
+
+  let activeSub = null;
 
   function render() {
     if (!container) return;
@@ -23,6 +28,18 @@ export function initGallery() {
       return;
     }
     container.innerHTML = gallery.map(item => renderGalleryCard(item)).join('');
+  }
+
+  if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', async () => {
+      if (activeSub && activeSub.loadMore) {
+        loadMoreBtn.disabled = true;
+        loadMoreBtn.textContent = 'Loading...';
+        await activeSub.loadMore();
+        loadMoreBtn.disabled = false;
+        loadMoreBtn.textContent = 'Load More Pictures';
+      }
+    });
   }
 
   if (addPhotoForm) {
@@ -71,13 +88,29 @@ export function initGallery() {
     });
   }
 
-  function attachSubscription() {
+  // P0-6: Screen-scoped subscription on school screen
+  async function startSubscription() {
     const classId = store.get('currentClassId') || '10-b';
-    subscribeClassCollection('gallery', classId, () => {
+    activeSub = await subscribeClassCollection('gallery', classId, (_items, hasMore) => {
       render();
+      if (loadMoreContainer) {
+        loadMoreContainer.classList.toggle('hidden', !hasMore);
+      }
     });
   }
 
-  store.subscribe('currentClassId', attachSubscription);
-  attachSubscription();
+  function stopSubscription() {
+    unsubscribeCollection('gallery');
+    activeSub = null;
+    if (loadMoreContainer) loadMoreContainer.classList.add('hidden');
+  }
+
+  router.registerScreenHook('school', {
+    onEnter: startSubscription,
+    onLeave: stopSubscription
+  });
+
+  store.subscribe('currentClassId', () => {
+    if (router.activeScreenId === 'school') startSubscription();
+  });
 }
