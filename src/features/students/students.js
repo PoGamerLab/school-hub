@@ -3,7 +3,7 @@ import { router } from '../../core/router/router.js';
 import { authService } from '../../core/auth/auth.js';
 import { renderStudentCard, renderProfileView } from './students.render.js';
 import { showToast } from '../../components/toast/toast.js';
-import { subscribeClassCollection, unsubscribeCollection } from '../../core/db/firestore.js';
+import { subscribeClassCollection, unsubscribeCollection, deleteDocument, updateDocument } from '../../core/db/firestore.js';
 import { openProfileModal, initProfileForm } from './students.modal.js';
 
 export function initStudents() {
@@ -114,15 +114,41 @@ export function initStudents() {
     }
   }
 
-  // Profile action buttons (Edit Profile or Create Profile) on #profile
-  document.querySelector('#profile')?.addEventListener('click', (e) => {
+  // Profile action buttons (Edit Profile, Create Profile, or Admin Delete) on #profile
+  document.querySelector('#profile')?.addEventListener('click', async (e) => {
     const editBtn = e.target.closest('#edit-my-profile-btn');
     const createBtn = e.target.closest('#create-my-profile-btn');
-    if (!editBtn && !createBtn) return;
-    const user = authService.getCurrentUser();
-    const students = store.get('students') || [];
-    const myProfile = students.find(s => (s.id || s.uid) === user?.uid || s.ownerUid === user?.uid);
-    openProfileModal(myProfile);
+    const deleteBtn = e.target.closest('#admin-delete-student-btn');
+
+    if (editBtn || createBtn) {
+      const user = authService.getCurrentUser();
+      const students = store.get('students') || [];
+      const myProfile = students.find(s => (s.id || s.uid) === user?.uid || s.ownerUid === user?.uid);
+      openProfileModal(myProfile);
+      return;
+    }
+
+    if (deleteBtn) {
+      const targetUid = deleteBtn.dataset.uid;
+      if (!targetUid) return;
+      const reason = prompt('Why are you deleting this student profile?\n(This reason will be shown to the student so they can recreate their profile properly)');
+      if (!reason || !reason.trim()) {
+        showToast('Deletion cancelled. A reason is required.', 'info');
+        return;
+      }
+      try {
+        await deleteDocument('students', targetUid);
+        await updateDocument('users', targetUid, {
+          status: 'needs_profile',
+          profileDeletedReason: reason.trim(),
+          profileDeletedAt: Date.now()
+        });
+        showToast('Student profile deleted. Student must recreate it on their next visit.', 'success');
+        router.navigate('class');
+      } catch (err) {
+        showToast(`Deletion failed: ${err.message}`, 'error');
+      }
+    }
   });
 
   initProfileForm();

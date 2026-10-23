@@ -10,6 +10,8 @@ const MAX_TOASTS = 3;
 const FADE_DURATION_MS = 280;
 
 let container = null;
+let lastToastMessage = '';
+let lastToastTime = 0;
 
 function ensureContainer() {
   if (!container) {
@@ -40,6 +42,14 @@ function removeToast(toast) {
  * @param {number} duration  ms before auto-dismiss
  */
 export function showToast(message, type = 'info', duration = 3500) {
+  if (!message) return;
+  const now = Date.now();
+  if (message === lastToastMessage && (now - lastToastTime) < 1500) {
+    return; // Prevent duplicate rapid toasts
+  }
+  lastToastMessage = message;
+  lastToastTime = now;
+
   const root = ensureContainer();
 
   // Enforce max 3: remove oldest excess toasts immediately

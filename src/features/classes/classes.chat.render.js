@@ -5,8 +5,8 @@ export function renderChatMessage(msg, currentUid, isAdmin) {
   const safeAuthor = escapeHtml(msg.authorName || 'Student');
   const safeText = escapeHtml(msg.text || '');
   const safeHouse = escapeHtml(msg.authorHouse || 'Unity');
-  const houseIcons = { Unity: '🔴', Faith: '🟡', Discipline: '🔵', Tolerance: '🟢' };
-  const houseIcon = houseIcons[msg.authorHouse] || '🔴';
+  const houseIcons = { Unity: '🔵', Faith: '🔴', Discipline: '🟠', Tolerance: '🟡' };
+  const houseIcon = houseIcons[msg.authorHouse] || '🔵';
   const isOwn = currentUid && msg.authorUid === currentUid;
   const canDelete = isOwn || isAdmin;
 

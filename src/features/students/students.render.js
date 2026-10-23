@@ -7,8 +7,8 @@ export function renderStudentCard(student) {
   const gradientClass = `gradient-${typeof student.gradientIndex === 'number' ? student.gradientIndex : 0}`;
   const house = student.house || 'Unity';
   const houseClass = `house-${house.toLowerCase()}`;
-  const houseIcons = { Unity: '🔴', Faith: '🟡', Discipline: '🔵', Tolerance: '🟢' };
-  const houseIcon = houseIcons[house] || '🔴';
+  const houseIcons = { Unity: '🔵', Faith: '🔴', Discipline: '🟠', Tolerance: '🟡' };
+  const houseIcon = houseIcons[house] || '🔵';
   const groupText = escapeHtml(student.group || student.category || 'Science');
   const classText = escapeHtml((student.classId || '10-B').toUpperCase());
 
@@ -32,6 +32,9 @@ export function renderStudentCard(student) {
 export function renderProfileView(student, currentUid = null) {
   const profileContainer = document.querySelector('#profile .profile');
   const profileTag = document.getElementById('profile-roll-tag');
+  const user = authService.getCurrentUser();
+  const isAdmin = !!store.get('isAdmin');
+  const deletedReason = user?.profileDeletedReason;
 
   if (!student || student.isUncreated) {
     if (profileTag) profileTag.textContent = 'NO PROFILE';
@@ -39,7 +42,14 @@ export function renderProfileView(student, currentUid = null) {
       profileContainer.innerHTML = `
         <div class="empty-state full-width-empty">
           <div class="empty-state-icon">👤</div>
-          <div class="empty-state-title">You Haven't Created Your Profile Yet</div>
+          ${deletedReason ? `
+            <div class="notice-box notice-warning">
+              <strong>⚠️ Notice from Administrator:</strong><br>
+              Your previous profile was removed. <em>"${escapeHtml(deletedReason)}"</em><br>
+              Please create an updated profile following school guidelines.
+            </div>
+          ` : ''}
+          <div class="empty-state-title">${deletedReason ? 'Re-create Your Student Profile' : "You Haven't Created Your Profile Yet"}</div>
           <div class="empty-state-desc">Create your profile now to share your details, house, and interests with the class.</div>
           <div class="profile-create-action">
             <button class="btn btn-primary" id="create-my-profile-btn">+ Create My Profile</button>
@@ -51,6 +61,7 @@ export function renderProfileView(student, currentUid = null) {
   }
 
   const isOwner = currentUid && (student.id === currentUid || student.ownerUid === currentUid);
+  const safeId = escapeAttr(student.id || student.uid);
 
   if (profileTag) profileTag.textContent = student.house ? `${student.house.toUpperCase()} HOUSE` : 'APSACIAN';
 
@@ -65,8 +76,8 @@ export function renderProfileView(student, currentUid = null) {
   const gradientClass = `gradient-${typeof student.gradientIndex === 'number' ? student.gradientIndex : 0}`;
   const house = student.house || 'Unity';
   const houseClass = `house-${house.toLowerCase()}`;
-  const houseIcons = { Unity: '🔴', Faith: '🟡', Discipline: '🔵', Tolerance: '🟢' };
-  const houseIcon = houseIcons[house] || '🔴';
+  const houseIcons = { Unity: '🔵', Faith: '🔴', Discipline: '🟠', Tolerance: '🟡' };
+  const houseIcon = houseIcons[house] || '🔵';
   const classText = escapeHtml((student.classId || '10-B').toUpperCase());
 
   if (profileContainer) {
@@ -81,11 +92,18 @@ export function renderProfileView(student, currentUid = null) {
         <div class="apsac-badge">Verified APSACian &middot; APSACS Skardu</div>
         <div class="profile-title-bar">
           <div class="pname display">${escapeHtml(student.name)}</div>
-          ${isOwner ? `
-            <button class="btn btn-sm btn-outline" id="edit-my-profile-btn">
-              ✏️ Edit Profile
-            </button>
-          ` : ''}
+          <div class="profile-actions-row">
+            ${isOwner ? `
+              <button class="btn btn-sm btn-outline" id="edit-my-profile-btn">
+                ✏️ Edit Profile
+              </button>
+            ` : ''}
+            ${isAdmin ? `
+              <button class="btn btn-sm btn-danger" id="admin-delete-student-btn" data-uid="${safeId}">
+                🗑️ Delete Profile
+              </button>
+            ` : ''}
+          </div>
         </div>
         <div class="prole">
           <span class="house-badge ${houseClass}">${houseIcon} ${escapeHtml(house)} House</span> &middot;

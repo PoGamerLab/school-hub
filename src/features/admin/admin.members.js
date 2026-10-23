@@ -99,6 +99,22 @@ function attachMemberEvents(allUsers, classes) {
           await logAdminAction('REVOKE_USER', uid, 'User status set to revoked');
           showToast('User access revoked.', 'info');
           await loadAndRenderMembers();
+        } else if (action === 'delete-profile') {
+          const reason = prompt('Why are you deleting this student profile?\n(This reason will be displayed to the student when they log in so they can recreate their profile properly)');
+          if (!reason || !reason.trim()) {
+            showToast('Deletion cancelled. A reason is required.', 'info');
+            btn.disabled = false;
+            return;
+          }
+          await deleteDocument('students', uid);
+          await updateDocument('users', uid, {
+            status: 'needs_profile',
+            profileDeletedReason: reason.trim(),
+            profileDeletedAt: Date.now()
+          });
+          await logAdminAction('DELETE_PROFILE', uid, `Deleted profile: "${reason.trim()}"`);
+          showToast('Student profile deleted. Student must recreate it on next visit.', 'success');
+          await loadAndRenderMembers();
         }
       } catch (err) {
         console.error('Member action failed:', err);
@@ -162,6 +178,9 @@ function renderSingleUserRow(u, classes) {
       <div class="admin-user-actions">
         ${status !== 'active' && !isBanned ? `
           <button class="btn btn-sm btn-restore" data-action="approve-user" data-uid="${safeUid}">Approve</button>
+        ` : ''}
+        ${status === 'active' ? `
+          <button class="btn btn-sm btn-outline-danger" data-action="delete-profile" data-uid="${safeUid}" title="Delete profile and request recreation">Delete Profile</button>
         ` : ''}
         ${(status === 'active' || status === 'needs_profile') ? `
           <button class="btn btn-sm btn-outline" data-action="reset-gate" data-uid="${safeUid}" title="Reset gate attempts">Reset Gate</button>

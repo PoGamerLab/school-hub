@@ -39,12 +39,15 @@ export function renderClassesHubCards(classes = [], myClassId = '', studentCount
   }).join('');
 }
 
-export function renderClassDetailBanner(classInfo, isMember) {
+export function renderClassDetailBanner(classInfo, isMember, isAdmin = false) {
   if (!classInfo) return '';
   const safeName = escapeHtml(classInfo.name || classInfo.id);
   const safeTeacher = escapeHtml(classInfo.classTeacher || 'Assigned Educator');
+
+  const gradeNum = classInfo.grade ? classInfo.grade.replace(/[^0-9]/g, '') : '';
+  const secLetter = classInfo.section ? classInfo.section.replace(/[^a-zA-Z]/g, '').slice(-1).toUpperCase() : '';
   const avatarText = escapeHtml(
-    classInfo.grade ? `${classInfo.grade.replace(/[^0-9]/g, '')}${classInfo.section || ''}` : 'APS'
+    gradeNum && secLetter ? `${gradeNum}-${secLetter}` : (classInfo.avatar || gradeNum || 'APS')
   );
 
   return `
@@ -56,9 +59,12 @@ export function renderClassDetailBanner(classInfo, isMember) {
           <strong>Class Teacher:</strong> ${safeTeacher} &middot;
           <strong>Affiliation:</strong> FBISE Islamabad
           ${isMember ? '&middot; <span class="class-my-badge">Enrolled Student</span>' : ''}
+          ${isAdmin ? `
+            &middot; <button class="btn btn-sm btn-outline banner-action-btn" id="open-edit-class-btn" data-class-id="${escapeAttr(classInfo.id)}">✏️ Edit Class</button>
+          ` : ''}
         </div>
       </div>
-      <div class="class-avatar">${avatarText || 'APS'}</div>
+      <div class="class-avatar" title="${safeName}">${avatarText}</div>
     </div>
   `;
 }

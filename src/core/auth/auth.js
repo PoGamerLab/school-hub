@@ -169,6 +169,7 @@ class AuthService {
         banned: userData.banned || false,
         status: effectiveStatus,
         onboardingStep: userData.onboardingStep || 0,
+        profileDeletedReason: userData.profileDeletedReason || null,
         isAdmin
       });
 
@@ -192,6 +193,7 @@ class AuthService {
           banned: currentData.banned || false,
           status: currentEffectiveStatus,
           onboardingStep: currentData.onboardingStep || 0,
+          profileDeletedReason: currentData.profileDeletedReason || null,
           isAdmin
         });
       });

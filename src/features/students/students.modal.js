@@ -159,11 +159,13 @@ export function initProfileForm() {
 
       const updatedUser = {
         ...user,
-        displayName: name
+        displayName: name,
+        profileDeletedReason: null,
+        status: 'active'
       };
       authService.setUser(updatedUser);
       try {
-        await updateDocument('users', user.uid, { displayName: name });
+        await updateDocument('users', user.uid, { displayName: name, profileDeletedReason: null, status: 'active' });
       } catch (e) {
         console.warn('Update user doc displayName error:', e);
       }

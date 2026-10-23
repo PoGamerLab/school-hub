@@ -87,6 +87,12 @@ export function initNavbar() {
 
     if (isRestricted && mobileDrawer) mobileDrawer.classList.remove('open');
 
+    // Hide member-only screens (Classes) when not signed in
+    const isAuthed = !!user;
+    document.querySelectorAll('[data-screen="class"]').forEach(el => {
+      el.classList.toggle('hidden-auth', !isAuthed);
+    });
+
     // Admin-gated elements
     document.querySelectorAll('.admin-nav-item, [data-screen="admin"]').forEach(el => {
       el.classList.toggle('hidden-admin', !isAdmin);
@@ -178,7 +184,7 @@ export function initNavbar() {
             showToast(`Welcome, ${signedInUser.displayName || 'Classmate'}!`, 'success');
           }
         } catch {
-          showToast('Sign-in cancelled or failed.', 'error');
+          // authService.signInWithGoogle already displays appropriate toast
         }
       });
     }

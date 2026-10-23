@@ -10,6 +10,8 @@ import { renderClassesHubCards, renderClassDetailBanner, renderClassStudentsGrid
 import { loadAndRenderClassChat, cleanupClassChat } from './classes.chat.js';
 import { loadAndRenderAnnouncements, cleanupAnnouncements } from './classes.announcements.js';
 import { loadAllStudentsDirectory, setDirectoryFilter, setDirectorySearch } from './classes.directory.js';
+import { updateDocument } from '../../core/db/firestore.js';
+import { showToast } from '../../components/toast/toast.js';
 import { initFirebase } from '../../config/firebase.js';
 
 let selectedClass = null;
@@ -51,6 +53,10 @@ export function initClasses() {
   const dirChips = document.getElementById('hub-students-chips');
 
   function switchHubArea(area) {
+    const isAdmin = !!store.get('isAdmin');
+    if (area === 'students' && !isAdmin) {
+      area = 'classrooms';
+    }
     currentHubArea = area;
     tabClassroomsBtn?.classList.toggle('active', area === 'classrooms');
     tabStudentsBtn?.classList.toggle('active', area === 'students');
@@ -123,8 +129,9 @@ export function initClasses() {
     const isMember = user && user.classId === cls.id;
 
     const bannerRoot = document.getElementById('class-detail-banner-root');
+    const isAdmin = !!store.get('isAdmin');
     if (bannerRoot) {
-      bannerRoot.innerHTML = renderClassDetailBanner(cls, isMember);
+      bannerRoot.innerHTML = renderClassDetailBanner(cls, isMember, isAdmin);
     }
 
     switchSubTab('students');
@@ -244,6 +251,63 @@ export function initClasses() {
   });
 
   adminAddBtn?.addEventListener('click', () => router.navigate('admin'));
+
+  // Edit Class Modal Events
+  const editModal = document.getElementById('edit-class-modal');
+  const editForm = document.getElementById('edit-class-form');
+  const closeEditBtn = document.getElementById('close-edit-class-modal');
+
+  closeEditBtn?.addEventListener('click', () => editModal?.classList.remove('active'));
+
+  document.getElementById('class-detail-banner-root')?.addEventListener('click', (e) => {
+    const editBtn = e.target.closest('#open-edit-class-btn');
+    if (!editBtn || !selectedClass) return;
+
+    document.getElementById('edit-class-id').value = selectedClass.id;
+    document.getElementById('edit-class-name').value = selectedClass.name || '';
+    document.getElementById('edit-class-grade').value = selectedClass.grade || '';
+    document.getElementById('edit-class-section').value = selectedClass.section || '';
+    document.getElementById('edit-class-teacher').value = selectedClass.classTeacher || '';
+    editModal?.classList.add('active');
+  });
+
+  editForm?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!selectedClass) return;
+
+    const name = document.getElementById('edit-class-name').value.trim();
+    const grade = document.getElementById('edit-class-grade').value.trim();
+    const section = document.getElementById('edit-class-section').value.trim();
+    const classTeacher = document.getElementById('edit-class-teacher').value.trim();
+
+    try {
+      await updateDocument('classes', selectedClass.id, {
+        name,
+        grade,
+        section,
+        classTeacher
+      });
+
+      selectedClass.name = name;
+      selectedClass.grade = grade;
+      selectedClass.section = section;
+      selectedClass.classTeacher = classTeacher;
+
+      const user = authService.getCurrentUser();
+      const isMember = user && user.classId === selectedClass.id;
+      const isAdmin = !!store.get('isAdmin');
+      const bannerRoot = document.getElementById('class-detail-banner-root');
+      if (bannerRoot) {
+        bannerRoot.innerHTML = renderClassDetailBanner(selectedClass, isMember, isAdmin);
+      }
+
+      editModal?.classList.remove('active');
+      showToast('Class information updated successfully!', 'success');
+      await syncClasses();
+    } catch (err) {
+      showToast(`Update failed: ${err.message}`, 'error');
+    }
+  });
 
   // Lifecycle
   router.registerScreenHook('class', {

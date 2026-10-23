@@ -36,10 +36,10 @@ export function renderWizardShell(isAdmin = false) {
             <div class="form-group form-col">
               <label for="w-house">APSACS House *</label>
               <select id="w-house">
-                <option value="Unity">🔴 Unity House (Ittehad)</option>
-                <option value="Faith">🟡 Faith House (Yaqeen)</option>
-                <option value="Discipline">🔵 Discipline House (Tanzeem)</option>
-                <option value="Tolerance">🟢 Tolerance House (Rawadari)</option>
+                <option value="Unity">🔵 Unity House (Ittehad)</option>
+                <option value="Faith">🔴 Faith House (Yaqeen)</option>
+                <option value="Discipline">🟠 Discipline House (Tanzeem)</option>
+                <option value="Tolerance">🟡 Tolerance House (Rawadari)</option>
               </select>
             </div>
             <div class="form-group form-col">

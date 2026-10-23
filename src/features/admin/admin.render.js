@@ -185,6 +185,9 @@ export function renderMembersManager(users = [], classes = []) {
           ${status !== 'active' && !isBanned ? `
             <button class="btn btn-sm btn-restore" data-action="approve-user" data-uid="${safeUid}">Approve</button>
           ` : ''}
+          ${status === 'active' ? `
+            <button class="btn btn-sm btn-outline-danger" data-action="delete-profile" data-uid="${safeUid}" title="Delete profile and request recreation">Delete Profile</button>
+          ` : ''}
           ${(status === 'active' || status === 'needs_profile') ? `
             <button class="btn btn-sm btn-outline" data-action="reset-gate" data-uid="${safeUid}" title="Reset gate attempts">Reset Gate</button>
           ` : ''}

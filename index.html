@@ -53,7 +53,7 @@
     <!-- Desktop Navigation Links -->
     <div class="navlinks">
       <button class="active" data-screen="home">Home</button>
-      <button data-screen="class">Classes</button>
+      <button data-screen="class" class="auth-required">Classes</button>
       <button data-screen="school">About School</button>
       <button data-screen="admin" class="admin-nav-item hidden-admin">Admin</button>
       <button data-screen="students" class="hidden">Students</button>
@@ -76,7 +76,7 @@
   <div class="mobile-nav-drawer" id="mobile-nav-drawer">
     <div class="mobile-nav-links">
       <button class="active" data-screen="home">🏠 Home</button>
-      <button data-screen="class">🏫 Classes</button>
+      <button data-screen="class" class="auth-required">🏫 Classes</button>
       <button data-screen="school">🏛️ About School</button>
       <button data-screen="admin" class="admin-nav-item hidden-admin">🛡️ Admin Console</button>
       <button data-screen="students" class="hidden">👥 Students Directory</button>
@@ -117,10 +117,10 @@
           </div>
         </div>
 
-        <!-- Top Switcher: Classrooms vs All Students Directory -->
+        <!-- Top Switcher: Classrooms vs All Students Directory (Admin Only) -->
         <div class="classes-hub-tabs">
           <button class="classes-hub-tab active" id="classes-tab-classrooms-btn">🏫 Classrooms</button>
-          <button class="classes-hub-tab" id="classes-tab-students-btn">👥 All Students Directory</button>
+          <button class="classes-hub-tab admin-nav-item hidden-admin" id="classes-tab-students-btn">👥 All Students Directory</button>
         </div>
 
         <!-- Area 1: Classrooms Grid -->
@@ -157,10 +157,10 @@
             </div>
             <div class="chips" id="hub-students-chips">
               <span class="chip active" data-filter="All">All</span>
-              <span class="chip" data-filter="Unity">🔴 Unity</span>
-              <span class="chip" data-filter="Faith">🟡 Faith</span>
-              <span class="chip" data-filter="Discipline">🔵 Discipline</span>
-              <span class="chip" data-filter="Tolerance">🟢 Tolerance</span>
+              <span class="chip" data-filter="Unity">🔵 Unity</span>
+              <span class="chip" data-filter="Faith">🔴 Faith</span>
+              <span class="chip" data-filter="Discipline">🟠 Discipline</span>
+              <span class="chip" data-filter="Tolerance">🟡 Tolerance</span>
               <span class="chip" data-filter="Sports">Sports</span>
               <span class="chip" data-filter="Academics">Academics</span>
               <span class="chip" data-filter="Coding">Coding</span>
@@ -232,10 +232,10 @@
         </div>
         <div class="chips">
           <span class="chip active" data-filter="All">All</span>
-          <span class="chip" data-filter="Unity">🔴 Unity</span>
-          <span class="chip" data-filter="Faith">🟢 Faith</span>
-          <span class="chip" data-filter="Discipline">🟡 Discipline</span>
-          <span class="chip" data-filter="Tolerance">🔵 Tolerance</span>
+          <span class="chip" data-filter="Unity">🔵 Unity</span>
+          <span class="chip" data-filter="Faith">🔴 Faith</span>
+          <span class="chip" data-filter="Discipline">🟠 Discipline</span>
+          <span class="chip" data-filter="Tolerance">🟡 Tolerance</span>
           <span class="chip" data-filter="Sports">Sports</span>
           <span class="chip" data-filter="Academics">Academics</span>
           <span class="chip" data-filter="Coding">Coding</span>
@@ -487,10 +487,10 @@
           <div class="form-group form-col">
             <label for="student-house">APSACS House *</label>
             <select id="student-house">
-              <option value="Unity">🔴 Unity House (Ittehad)</option>
-              <option value="Faith">🟡 Faith House (Yaqeen)</option>
-              <option value="Discipline">🔵 Discipline House (Tanzeem)</option>
-              <option value="Tolerance">🟢 Tolerance House (Rawadari)</option>
+              <option value="Unity">🔵 Unity House (Ittehad)</option>
+              <option value="Faith">🔴 Faith House (Yaqeen)</option>
+              <option value="Discipline">🟠 Discipline House (Tanzeem)</option>
+              <option value="Tolerance">🟡 Tolerance House (Rawadari)</option>
             </select>
           </div>
           <div class="form-group form-col">
@@ -771,6 +771,38 @@
     </div>
   </div>
 
+  <!-- Modal for Editing Class Information (Admin Only) -->
+  <div class="modal-overlay" id="edit-class-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Edit Classroom Information</h3>
+        <button class="modal-close" id="close-edit-class-modal">&times;</button>
+      </div>
+      <form id="edit-class-form">
+        <input type="hidden" id="edit-class-id">
+        <div class="form-group">
+          <label for="edit-class-name">Class Display Name *</label>
+          <input type="text" id="edit-class-name" required maxlength="80">
+        </div>
+        <div class="form-row">
+          <div class="form-group form-col">
+            <label for="edit-class-grade">Grade</label>
+            <input type="text" id="edit-class-grade" required maxlength="30">
+          </div>
+          <div class="form-group form-col">
+            <label for="edit-class-section">Section</label>
+            <input type="text" id="edit-class-section" required maxlength="30">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="edit-class-teacher">Class Teacher Name *</label>
+          <input type="text" id="edit-class-teacher" required maxlength="80">
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Save Changes</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Modal for Posting Class Announcement -->
   <div class="modal-overlay" id="add-announcement-modal">
     <div class="modal-box">
@@ -798,7 +830,7 @@
       <span class="bottom-tab-icon">🏠</span>
       <span class="bottom-tab-label">Home</span>
     </button>
-    <button class="bottom-tab-btn" data-screen="class">
+    <button class="bottom-tab-btn auth-required" data-screen="class">
       <span class="bottom-tab-icon">🏫</span>
       <span class="bottom-tab-label">Classes</span>
     </button>
