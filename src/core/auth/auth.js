@@ -124,6 +124,12 @@ class AuthService {
       const isAdmin = adminSnap.exists();
 
       hideProfileErrorBanner();
+
+      // Admins always get treated as active even if status field is missing/wrong
+      const effectiveStatus = isAdmin
+        ? 'active'
+        : (userData.status || 'needs_gate');
+
       this.setUser({
         uid: firebaseUser.uid,
         displayName: userData.displayName || firebaseUser.displayName || 'Classmate',
@@ -132,7 +138,7 @@ class AuthService {
         classId: userData.classId || '',
         role: userData.role || 'member',
         banned: userData.banned || false,
-        status: userData.status || 'needs_gate',
+        status: effectiveStatus,
         onboardingStep: userData.onboardingStep || 0,
         isAdmin
       });
@@ -144,6 +150,9 @@ class AuthService {
       this._userUnsub = onSnapshot(userRef, (snap) => {
         if (!snap.exists()) return;
         const currentData = snap.data();
+        const currentEffectiveStatus = isAdmin
+          ? 'active'
+          : (currentData.status || 'needs_gate');
         this.setUser({
           uid: firebaseUser.uid,
           displayName: currentData.displayName || firebaseUser.displayName || 'Classmate',
@@ -152,7 +161,7 @@ class AuthService {
           classId: currentData.classId || '',
           role: currentData.role || 'member',
           banned: currentData.banned || false,
-          status: currentData.status || 'needs_gate',
+          status: currentEffectiveStatus,
           onboardingStep: currentData.onboardingStep || 0,
           isAdmin
         });

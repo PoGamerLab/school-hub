@@ -35,7 +35,8 @@ async function maybeInitAdmin() {
 }
 
 async function boot() {
-  authService.init();
+  // initNavbar FIRST — registers store.subscribe('user') so the Sign In
+  // button is guaranteed to render even if Firebase resolves instantly.
   initNavbar();
 
   initModal('add-student-modal',    'open-add-student-btn',    'close-student-modal');
@@ -46,7 +47,7 @@ async function boot() {
   initModal('propose-class-modal',  'open-propose-class-btn',  'close-propose-class-modal');
   initModal('join-class-modal',     'open-join-class-btn',     'close-join-class-modal');
 
-  // Register all feature hooks before router unlocks
+  // Register all feature screen hooks before router unlocks
   initClasses();
   initStudents();
   initTeachers();
@@ -57,6 +58,9 @@ async function boot() {
   initOnboarding();
 
   router.init();
+
+  // Start auth listener AFTER navbar and router are ready
+  authService.init();
 
   await authService.ready();
   router.onAuthReady();

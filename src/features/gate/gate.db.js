@@ -2,7 +2,7 @@
  * Data layer operations for Gate verification (Phase 1).
  */
 
-import { getDocument, setDocument, updateDocument, ensureDb as _ensureDb } from '../../core/db/firestore.js';
+import { getDocument, setDocument, updateDocument } from '../../core/db/firestore.js';
 import { initFirebase } from '../../config/firebase.js';
 
 export async function fetchGateQuestions() {
