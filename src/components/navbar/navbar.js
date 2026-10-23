@@ -79,10 +79,16 @@ export function initNavbar() {
     if (navToggle) navToggle.classList.toggle('hidden-auth', isRestricted);
     if (bottomBar) bottomBar.classList.toggle('hidden-auth', isRestricted);
     if (isRestricted && mobileDrawer) mobileDrawer.classList.remove('open');
+
+    // Toggle admin-only tabs and controls
+    document.querySelectorAll('.admin-nav-item, [data-screen="admin"]').forEach(el => {
+      el.classList.toggle('hidden-admin', !isAdmin);
+    });
   }
 
   function renderAuth(user) {
     if (!container) return;
+    const isAdmin = store.get('isAdmin');
     updateNavVisibility(user);
 
     if (user) {
@@ -98,6 +104,18 @@ export function initNavbar() {
             <span class="dropdown-caret">▾</span>
           </button>
           <div class="auth-dropdown-menu" id="nav-user-dropdown-menu">
+            <div class="auth-dropdown-header">
+              <span class="tag ${isAdmin ? 'tag-gold' : 'tag-active'}">${isAdmin ? '🛡️ Administrator' : '🎓 Student Member'}</span>
+            </div>
+            ${isAdmin ? `
+              <button class="auth-dropdown-item" id="nav-admin-item-btn">
+                <span>🛡️</span> Admin Console
+              </button>
+            ` : `
+              <button class="auth-dropdown-item" id="nav-claim-admin-btn">
+                <span>🔑</span> Claim Admin Access
+              </button>
+            `}
             <button class="auth-dropdown-item" id="nav-profile-item-btn">
               <span>👤</span> My Profile
             </button>
@@ -115,6 +133,22 @@ export function initNavbar() {
         e.stopPropagation();
         const isOpen = dropdownMenu?.classList.toggle('open');
         dropdownBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      });
+
+      document.getElementById('nav-admin-item-btn')?.addEventListener('click', () => {
+        dropdownMenu?.classList.remove('open');
+        router.navigate('admin');
+      });
+
+      document.getElementById('nav-claim-admin-btn')?.addEventListener('click', async () => {
+        dropdownMenu?.classList.remove('open');
+        const pass = prompt('Enter Administrator Passphrase (e.g. APSACS2026):');
+        if (pass) {
+          const success = await authService.claimAdminAccess(pass);
+          if (success) {
+            router.navigate('admin');
+          }
+        }
       });
 
       document.getElementById('nav-profile-item-btn')?.addEventListener('click', () => {
@@ -184,7 +218,7 @@ export function initNavbar() {
   });
 
   store.subscribe('isAdmin', () => {
-    updateNavVisibility(authService.getCurrentUser());
+    renderAuth(authService.getCurrentUser());
   });
 
   renderAuth(store.get('user'));

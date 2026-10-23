@@ -158,6 +158,12 @@
   display: flex;
 }
 
+.auth-dropdown-header {
+  padding: 6px 14px 8px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 4px;
+}
+
 .auth-dropdown-item {
   display: flex;
   align-items: center;

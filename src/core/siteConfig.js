@@ -17,10 +17,25 @@ export function initSiteConfig() {
       const isReadOnly = data.readOnly === true;
       store.set('isReadOnly', isReadOnly, false);
       if (roBanner) {
-        roBanner.classList.toggle('hidden', !isReadOnly);
+        if (isReadOnly) {
+          const isAdmin = store.get('isAdmin');
+          roBanner.innerHTML = `
+            <span>⚠️ <strong>Site Read-Only:</strong> Normal posting and voting are temporarily paused by administration.</span>
+            ${isAdmin ? `<button class="btn btn-sm btn-outline banner-action-btn" id="ro-quick-disable-btn">Turn Off Read-Only</button>` : ''}
+          `;
+          roBanner.classList.remove('hidden');
+
+          document.getElementById('ro-quick-disable-btn')?.addEventListener('click', async () => {
+            const { setDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+            await setDoc(doc(fb.db, 'siteConfig', 'status'), { readOnly: false }, { merge: true });
+          });
+        } else {
+          roBanner.classList.add('hidden');
+        }
       }
     }, (err) => {
       console.warn('siteConfig status listener warning:', err);
+      if (roBanner) roBanner.classList.add('hidden');
     });
 
     // 2. Announcement listener

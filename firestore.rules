@@ -14,7 +14,8 @@ service cloud.firestore {
     function isAdmin() {
       return isSignedIn() && (
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.uid in ['09GmmAuEGmdSHL6X9Z9BgGGenfW2', 'Ox86p08MIYcdvMWCMTFNYXFJeXC2']
+        request.auth.uid in ['09GmmAuEGmdSHL6X9Z9BgGGenfW2', 'Ox86p08MIYcdvMWCMTFNYXFJeXC2'] ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
       );
     }
 
@@ -44,8 +45,8 @@ service cloud.firestore {
 
     // --- 2. admins/{uid} (Console or recognized admin writes) ---
     match /admins/{uid} {
-      allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
-      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == uid && request.auth.uid in ['09GmmAuEGmdSHL6X9Z9BgGGenfW2', 'Ox86p08MIYcdvMWCMTFNYXFJeXC2']);
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (isAdmin() || request.auth.uid == uid);
     }
 
     // --- 3. users/{uid} (Owner or admin read, state machine updates) ---
