@@ -201,6 +201,49 @@
   font-size: 12.5px;
 }
 
+.house-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.house-unity { background: #FDE8E8; color: #9B1C1C; border: 1px solid #F8B4B4; }
+.house-faith { background: #FEF08A; color: #713F12; border: 1px solid #FDE047; }
+.house-discipline { background: #E1EFFE; color: #1E429F; border: 1px solid #A4CAFE; }
+.house-tolerance { background: #DEF7EC; color: #03543F; border: 1px solid #84E1BC; }
+
+.apsac-badge {
+  display: inline-block;
+  background: var(--pine-deep);
+  color: var(--gold);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 4px;
+  margin-bottom: 6px;
+}
+
+.card-class-tag {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.45);
+  color: #fff;
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
 .profile-nav-group {
   display: flex;
   align-items: center;

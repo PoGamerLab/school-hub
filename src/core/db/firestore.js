@@ -75,15 +75,32 @@ export async function subscribeClassCollection(collectionName, classId, onUpdate
     return { loadMore: async () => {}, hasMore: false };
   }
 
-  const { collection, query, where, limit, orderBy, onSnapshot, getDocs, startAfter } =
+  const { collection, query, where, limit, onSnapshot, getDocs, startAfter } =
     await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+
+  const queryConstraints = [];
+  // Campus gallery is school-wide; other collections filter by classId if provided
+  if (collectionName !== 'gallery' && classId) {
+    queryConstraints.push(where('classId', '==', classId));
+  }
+  queryConstraints.push(limit(pageSize));
 
   const baseQuery = () => query(
     collection(database, collectionName),
-    where('classId', '==', classId),
-    orderBy('createdAt', 'desc'),
-    limit(pageSize)
+    ...queryConstraints
   );
+
+  function sortItems(arr) {
+    return arr.sort((a, b) => {
+      const getT = (obj) => {
+        if (!obj?.createdAt) return 0;
+        if (typeof obj.createdAt.toMillis === 'function') return obj.createdAt.toMillis();
+        if (typeof obj.createdAt === 'number') return obj.createdAt;
+        return new Date(obj.createdAt).getTime() || 0;
+      };
+      return getT(b) - getT(a);
+    });
+  }
 
   let lastVisible = null;
   let _hasMore = true;
@@ -92,7 +109,7 @@ export async function subscribeClassCollection(collectionName, classId, onUpdate
   let unsub;
   try {
     unsub = onSnapshot(baseQuery(), (snapshot) => {
-      const items = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      const items = sortItems(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
       lastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
       _hasMore = snapshot.docs.length >= pageSize;
       store.set(collectionName, items, false);
@@ -111,12 +128,10 @@ export async function subscribeClassCollection(collectionName, classId, onUpdate
   async function loadMore() {
     if (!lastVisible || !_hasMore) return;
 
+    const moreConstraints = [...queryConstraints, startAfter(lastVisible)];
     const nextQuery = query(
       collection(database, collectionName),
-      where('classId', '==', classId),
-      orderBy('createdAt', 'desc'),
-      limit(pageSize),
-      startAfter(lastVisible)
+      ...moreConstraints
     );
 
     try {
@@ -126,7 +141,7 @@ export async function subscribeClassCollection(collectionName, classId, onUpdate
       _hasMore = snap.docs.length >= pageSize;
 
       const current = store.get(collectionName) || [];
-      const merged = [...current, ...newItems];
+      const merged = sortItems([...current, ...newItems]);
       store.set(collectionName, merged, false);
       onUpdate(merged, _hasMore);
     } catch (err) {

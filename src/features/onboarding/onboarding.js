@@ -23,6 +23,8 @@ export function initOnboarding() {
     return {
       name: (document.getElementById('w-name')?.value || '').trim(),
       roll: (document.getElementById('w-roll')?.value || '').trim().replace(/[^0-9]/g, ''),
+      house: document.getElementById('w-house')?.value || 'Unity',
+      group: document.getElementById('w-group')?.value || 'Pre-Medical',
       category: document.getElementById('w-category')?.value || 'Sports',
       bio: (document.getElementById('w-bio')?.value || '').trim(),
       favSubject: (document.getElementById('w-subject')?.value || '').trim(),
@@ -41,6 +43,8 @@ export function initOnboarding() {
     if (!data) return;
     if (document.getElementById('w-name') && data.name) document.getElementById('w-name').value = data.name;
     if (document.getElementById('w-roll') && data.roll) document.getElementById('w-roll').value = data.roll;
+    if (document.getElementById('w-house') && data.house) document.getElementById('w-house').value = data.house;
+    if (document.getElementById('w-group') && data.group) document.getElementById('w-group').value = data.group;
     if (document.getElementById('w-category') && data.category) document.getElementById('w-category').value = data.category;
     if (document.getElementById('w-bio') && data.bio) document.getElementById('w-bio').value = data.bio;
     if (document.getElementById('w-subject') && data.favSubject) document.getElementById('w-subject').value = data.favSubject;
@@ -192,6 +196,8 @@ export function initOnboarding() {
     const payload = {
       name: data.name,
       roll: data.roll,
+      house: data.house || 'Unity',
+      group: data.group || 'Pre-Medical',
       category: data.category,
       tags: data.tags,
       bio: data.bio,

@@ -1,24 +1,45 @@
 import { escapeHtml, escapeAttr } from '../../core/utils/escapeHtml.js';
 
-export function renderClassBanner(classInfo, isMember = false) {
+export function renderClassBanner(classInfo, isMember = false, classes = []) {
+  const switcherHtml = (classes && classes.length > 1) ? `
+    <div class="class-switcher-bar">
+      <span class="class-switcher-label">APSACS Skardu Classrooms</span>
+      <select id="class-switcher-select" class="class-switcher-select">
+        ${classes.map(c => `
+          <option value="${escapeAttr(c.id)}" ${classInfo && classInfo.id === c.id ? 'selected' : ''}>
+            ${escapeHtml(c.name || c.id)}
+          </option>
+        `).join('')}
+      </select>
+    </div>
+  ` : '';
+
   if (!classInfo) {
     return `
+      ${switcherHtml}
       <div class="empty-state full-width-empty">
         <div class="empty-state-icon">🏛️</div>
         <div class="empty-state-title">No Class Selected</div>
-        <div class="empty-state-desc">Join your class with an invite code or propose a new class below.</div>
+        <div class="empty-state-desc">Ask your administrator to create a class in the Admin Console.</div>
       </div>
     `;
   }
 
+  const avatarText = escapeHtml(classInfo.avatar || (classInfo.grade ? `${classInfo.grade.replace(/[^0-9]/g, '')}${classInfo.section || ''}` : 'APS'));
+
   return `
+    ${switcherHtml}
     <div class="class-banner">
       <div class="class-banner-content">
-        <div class="k">Active Class</div>
+        <div class="k">Army Public School &amp; College Skardu &middot; Active Class</div>
         <h3>${escapeHtml(classInfo.name || 'Grade 10 — Section B')}</h3>
-        <div class="meta">${escapeHtml(classInfo.classTeacher || 'Classroom Portal')} &middot; ${escapeHtml(classInfo.room || 'Skardu')} &middot; ${escapeHtml(classInfo.track || 'FBISE')}</div>
+        <div class="meta">
+          <strong>Teacher:</strong> ${escapeHtml(classInfo.classTeacher || 'Assigned Educator')} &middot;
+          <strong>Room:</strong> ${escapeHtml(classInfo.room || 'Senior Wing')} &middot;
+          <strong>Affiliation:</strong> FBISE Islamabad
+        </div>
       </div>
-      <div class="class-avatar">${escapeHtml(classInfo.avatar || '10B')}</div>
+      <div class="class-avatar">${avatarText || 'APS'}</div>
     </div>
   `;
 }

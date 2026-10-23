@@ -105,6 +105,8 @@ export function initStudents() {
     // Pre-populate form with existing profile data
     const nameEl = document.getElementById('student-name');
     const rollEl = document.getElementById('student-roll');
+    const houseEl = document.getElementById('student-house');
+    const groupEl = document.getElementById('student-group');
     const catEl = document.getElementById('student-category');
     const tagsEl = document.getElementById('student-tags');
     const bioEl = document.getElementById('student-bio');
@@ -118,6 +120,8 @@ export function initStudents() {
 
     if (nameEl) nameEl.value = myProfile.name || '';
     if (rollEl) rollEl.value = myProfile.roll || '';
+    if (houseEl) houseEl.value = myProfile.house || 'Unity';
+    if (groupEl) groupEl.value = myProfile.group || 'Pre-Medical';
     if (catEl) catEl.value = myProfile.category || 'Sports';
     if (tagsEl) tagsEl.value = myProfile.tags || '';
     if (bioEl) bioEl.value = myProfile.bio || '';
@@ -199,6 +203,8 @@ export function initStudents() {
 
       const name = document.getElementById('student-name').value.trim();
       const roll = document.getElementById('student-roll').value.trim();
+      const house = document.getElementById('student-house')?.value || 'Unity';
+      const group = document.getElementById('student-group')?.value || 'Pre-Medical';
       const category = document.getElementById('student-category').value;
       const tags = document.getElementById('student-tags').value.trim();
       const bio = document.getElementById('student-bio').value.trim();
@@ -216,6 +222,8 @@ export function initStudents() {
         ownerUid: user.uid,
         name,
         roll,
+        house,
+        group,
         category,
         tags,
         bio,

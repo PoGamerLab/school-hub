@@ -27,7 +27,7 @@ service cloud.firestore {
     }
 
     function inMyClass(classId) {
-      return isAdmin() || (isSignedIn() && getUser().classId == classId);
+      return isAdmin() || (isSignedIn() && (getUser().classId == classId || classId == ''));
     }
 
     function siteWritable() {
@@ -153,7 +153,7 @@ service cloud.firestore {
 
     // --- 7. classes/{classId} (Active readable, admin write) ---
     match /classes/{classId} {
-      allow read: if isSignedIn() && (resource.data.status == 'active' || resource.data.createdBy == request.auth.uid || isAdmin());
+      allow read: if resource.data.status == 'active' || (isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin()));
       allow write: if isAdmin();
     }
 
@@ -170,11 +170,11 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'name', 'roll', 'category', 'tags', 'bio', 'favSubject', 'favQuote', 'funFact',
           'gradientIndex', 'initials', 'classId', 'ownerUid', 'showBirthday', 'showContact',
-          'birthday', 'contact', 'verified', 'createdAt'
+          'birthday', 'contact', 'verified', 'house', 'group', 'createdAt'
         ]) &&
         request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
         request.resource.data.roll is string && request.resource.data.roll.size() <= 10 &&
-        request.resource.data.category in ['Sports', 'Music', 'Coding', 'Art'] &&
+        request.resource.data.category in ['Sports', 'Music', 'Coding', 'Art', 'Debates'] &&
         request.resource.data.tags is string && request.resource.data.tags.size() <= 100 &&
         request.resource.data.bio is string && request.resource.data.bio.size() <= 500 &&
         request.resource.data.favSubject is string && request.resource.data.favSubject.size() <= 60 &&
@@ -195,7 +195,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'name', 'roll', 'category', 'tags', 'bio', 'favSubject', 'favQuote', 'funFact',
           'gradientIndex', 'initials', 'classId', 'ownerUid', 'showBirthday', 'showContact',
-          'birthday', 'contact', 'verified', 'createdAt'
+          'birthday', 'contact', 'verified', 'house', 'group', 'createdAt'
         ]) &&
         request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
         request.resource.data.bio is string && request.resource.data.bio.size() <= 500 &&
@@ -269,9 +269,9 @@ service cloud.firestore {
       allow delete: if resource.data.createdBy == request.auth.uid || isAdmin();
     }
 
-    // --- 11. teachers/{id} (Admin create, update, delete only) ---
+    // --- 11. teachers/{id} (Public faculty directory read, admin write) ---
     match /teachers/{id} {
-      allow read: if isActive() && inMyClass(resource.data.classId);
+      allow read: if true;
       allow create: if isAdmin() &&
         request.resource.data.keys().hasOnly(['classId', 'ownerUid', 'name', 'subject', 'room', 'qualification', 'img', 'initials', 'createdAt']) &&
         request.resource.data.name is string && request.resource.data.name.size() <= 80 &&
@@ -283,10 +283,10 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // --- 12. gallery/{id} ---
+    // --- 12. gallery/{id} (Campus gallery public read, active members create) ---
     match /gallery/{id} {
-      allow read: if isActive() && inMyClass(resource.data.classId);
-      allow create: if isActive() && inMyClass(request.resource.data.classId) && siteWritable() &&
+      allow read: if true;
+      allow create: if isActive() && siteWritable() &&
         request.resource.data.keys().hasOnly(['classId', 'ownerUid', 'caption', 'url', 'createdAt']) &&
         request.resource.data.ownerUid == request.auth.uid &&
         request.resource.data.caption is string && request.resource.data.caption.size() <= 140 &&

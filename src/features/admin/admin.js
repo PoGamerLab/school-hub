@@ -9,6 +9,7 @@ import { renderReportedMemoryRow, renderGateEditor, renderClassManager } from '.
 import { showToast } from '../../components/toast/toast.js';
 import { updateDocument, deleteDocument, getDocument, setDocument } from '../../core/db/firestore.js';
 import { fetchActiveClasses } from '../gate/gate.db.js';
+import { syncClasses } from '../classes/classes.js';
 import { normalizeAnswer } from '../../core/utils/normalizeAnswer.js';
 import { initFirebase } from '../../config/firebase.js';
 
@@ -119,8 +120,7 @@ export function initAdmin() {
         }, true, 'createdAt');
 
         showToast(`Class "${name}" created and active!`, 'success');
-        store.set('currentClassId', classId, false);
-        store.set('classInfo', { id: classId, name, grade, section, classTeacher, room, status: 'active' }, false);
+        await syncClasses();
         await Promise.all([loadAndRenderClassManager(), loadAndRenderGateEditor()]);
       } catch (err) {
         console.error('Failed to create class:', err);
@@ -141,6 +141,7 @@ export function initAdmin() {
         try {
           await deleteDocument('classes', id);
           showToast(`Class ${id} deleted.`, 'info');
+          await syncClasses();
           await Promise.all([loadAndRenderClassManager(), loadAndRenderGateEditor()]);
         } catch (err) {
           showToast(`Delete failed: ${err.message}`, 'error');

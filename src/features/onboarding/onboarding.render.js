@@ -34,12 +34,34 @@ export function renderWizardShell() {
               <input type="text" id="w-roll" pattern="[0-9]+" placeholder="e.g. 42" required maxlength="10">
             </div>
             <div class="form-group form-col">
-              <label for="w-category">Category *</label>
+              <label for="w-house">APSACS House *</label>
+              <select id="w-house">
+                <option value="Unity">🔴 Unity House (Ittehad)</option>
+                <option value="Faith">🟡 Faith House (Yaqeen)</option>
+                <option value="Discipline">🔵 Discipline House (Tanzeem)</option>
+                <option value="Tolerance">🟢 Tolerance House (Rawadari)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-row">
+            <div class="form-group form-col">
+              <label for="w-group">Academic Group / Discipline *</label>
+              <select id="w-group">
+                <option value="Pre-Medical">Science — Pre-Medical</option>
+                <option value="Pre-Engineering">Science — Pre-Engineering</option>
+                <option value="Computer Science">Science — Computer Science / ICS</option>
+                <option value="Humanities">Humanities / General Science</option>
+              </select>
+            </div>
+            <div class="form-group form-col">
+              <label for="w-category">Special Interest / Activity *</label>
               <select id="w-category">
-                <option value="Sports">Sports</option>
-                <option value="Music">Music</option>
-                <option value="Coding">Coding</option>
-                <option value="Art">Art</option>
+                <option value="Sports">Sports &amp; Athletics</option>
+                <option value="Debates">Debating &amp; Public Speaking</option>
+                <option value="Coding">Coding &amp; STEM Robotics</option>
+                <option value="Music">Music &amp; Qirat / Naat</option>
+                <option value="Art">Calligraphy &amp; Fine Arts</option>
               </select>
             </div>
           </div>
@@ -143,7 +165,15 @@ export function renderReviewSummary(data) {
         <span class="review-value">${escapeHtml(data.roll || 'Not entered')}</span>
       </div>
       <div class="review-row">
-        <span class="review-label">Category</span>
+        <span class="review-label">APSACS House</span>
+        <span class="review-value">${escapeHtml(data.house || 'Unity')} House</span>
+      </div>
+      <div class="review-row">
+        <span class="review-label">Academic Group</span>
+        <span class="review-value">${escapeHtml(data.group || 'Science')}</span>
+      </div>
+      <div class="review-row">
+        <span class="review-label">Special Interest</span>
         <span class="review-value">${escapeHtml(data.category || 'Sports')}</span>
       </div>
       <div class="review-row">

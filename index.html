@@ -146,13 +146,6 @@
       <div id="students-load-more-container" class="load-more-container hidden">
         <button class="btn btn-outline btn-sm" id="students-load-more-btn">Load More Students</button>
       </div>
-
-      <div class="submit-band">
-        <h3>Not on the list yet?</h3>
-        <p>Every student in the class can add their own profile &mdash; photo, bio, and a few fun facts &mdash; in under two minutes.</p>
-        <button class="btn btn-primary auth-required" id="open-add-student-btn">Add my profile &rarr;</button>
-        <div class="anon-prompt">Sign in with Google in the top bar to add your student profile.</div>
-      </div>
     </section>
   </div>
 
@@ -347,11 +340,11 @@
     </section>
   </div>
 
-  <!-- Modal for Adding Student Profile -->
+  <!-- Modal for Editing Student Profile -->
   <div class="modal-overlay" id="add-student-modal">
     <div class="modal-box">
       <div class="modal-header">
-        <h3>Add Your Student Profile</h3>
+        <h3>Edit Your Student Profile</h3>
         <button class="modal-close" id="close-student-modal">&times;</button>
       </div>
       <form id="add-student-form">
@@ -361,31 +354,52 @@
         </div>
         <div class="form-row">
           <div class="form-group form-col">
-            <label for="student-roll">Roll Number</label>
+            <label for="student-roll">Roll Number (Digits only)</label>
             <input type="text" id="student-roll" placeholder="e.g. 42" required maxlength="10">
           </div>
           <div class="form-group form-col">
-            <label for="student-category">Category</label>
+            <label for="student-house">APSACS House</label>
+            <select id="student-house">
+              <option value="Unity">🔴 Unity House (Ittehad)</option>
+              <option value="Faith">🟡 Faith House (Yaqeen)</option>
+              <option value="Discipline">🔵 Discipline House (Tanzeem)</option>
+              <option value="Tolerance">🟢 Tolerance House (Rawadari)</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group form-col">
+            <label for="student-group">Academic Group / Discipline</label>
+            <select id="student-group">
+              <option value="Pre-Medical">Science — Pre-Medical (Bio, Chem, Phy)</option>
+              <option value="Pre-Engineering">Science — Pre-Engineering (Math, Chem, Phy)</option>
+              <option value="Computer Science">Science — Computer Science / ICS (CS, Math, Phy)</option>
+              <option value="Humanities">Humanities / General Science</option>
+            </select>
+          </div>
+          <div class="form-group form-col">
+            <label for="student-category">Special Interest / Activity</label>
             <select id="student-category">
-              <option value="Sports">Sports</option>
-              <option value="Music">Music</option>
-              <option value="Coding">Coding</option>
-              <option value="Art">Art</option>
+              <option value="Sports">Sports &amp; Athletics</option>
+              <option value="Debates">Debating &amp; Public Speaking</option>
+              <option value="Coding">Coding &amp; STEM Robotics</option>
+              <option value="Music">Music &amp; Qirat / Naat</option>
+              <option value="Art">Calligraphy &amp; Fine Arts</option>
             </select>
           </div>
         </div>
         <div class="form-group">
           <label for="student-tags">Hobbies / Hype Tags</label>
-          <input type="text" id="student-tags" placeholder="e.g. Cricket &middot; Gaming" required maxlength="100">
+          <input type="text" id="student-tags" placeholder="e.g. Cricket &middot; Coding &middot; Football" required maxlength="100">
         </div>
         <div class="form-group">
-          <label for="student-bio">Short Bio</label>
-          <textarea id="student-bio" rows="2" placeholder="Tell the class a bit about yourself..." required maxlength="500"></textarea>
+          <label for="student-bio">Short Bio &amp; Future Ambition</label>
+          <textarea id="student-bio" rows="2" placeholder="e.g. Future Software Engineer / Armed Forces Officer / Doctor..." required maxlength="500"></textarea>
         </div>
         <div class="form-row">
           <div class="form-group form-col">
             <label for="student-subject">Favourite Subject</label>
-            <input type="text" id="student-subject" placeholder="e.g. Mathematics" required maxlength="60">
+            <input type="text" id="student-subject" placeholder="e.g. Computer Science, Physics" required maxlength="60">
           </div>
           <div class="form-group form-col">
             <label for="student-birthday">Birthday <span class="privacy-badge">Optional</span></label>
@@ -397,7 +411,7 @@
         </div>
         <div class="form-group">
           <label for="student-quote">Favourite Quote</label>
-          <input type="text" id="student-quote" placeholder='"Aim high and dare to rise."' required maxlength="140">
+          <input type="text" id="student-quote" placeholder='"I Shall Rise &amp; Shine"' required maxlength="140">
         </div>
         <div class="form-row">
           <div class="form-group form-col">
@@ -412,7 +426,7 @@
             </label>
           </div>
         </div>
-        <button type="submit" class="btn btn-primary btn-full">Publish My Profile</button>
+        <button type="submit" class="btn btn-primary btn-full">Save &amp; Update Profile</button>
       </form>
     </div>
   </div>

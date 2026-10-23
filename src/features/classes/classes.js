@@ -8,9 +8,39 @@
 
 import { store } from '../../core/store/store.js';
 import { authService } from '../../core/auth/auth.js';
+import { router } from '../../core/router/router.js';
 import { renderClassBanner } from './classes.render.js';
 import { showToast } from '../../components/toast/toast.js';
 import { createDocument, updateDocument } from '../../core/db/firestore.js';
+import { fetchActiveClasses } from '../gate/gate.db.js';
+
+export async function syncClasses() {
+  try {
+    const classes = await fetchActiveClasses();
+    store.set('activeClasses', classes, false);
+
+    const user = authService.getCurrentUser();
+    let currentId = store.get('currentClassId');
+
+    if (user && user.classId && classes.some(c => c.id === user.classId)) {
+      currentId = user.classId;
+    } else if (!currentId || !classes.some(c => c.id === currentId)) {
+      if (classes.length > 0) {
+        currentId = classes[0].id;
+      }
+    }
+
+    const currentClass = classes.find(c => c.id === currentId) || classes[0] || null;
+    if (currentClass) {
+      store.set('currentClassId', currentClass.id, false);
+      store.set('classInfo', currentClass, true);
+    }
+    return { classes, currentClass };
+  } catch (err) {
+    console.warn('[Classes] syncClasses failed:', err);
+    return { classes: [], currentClass: null };
+  }
+}
 
 export function initClasses() {
   const container = document.getElementById('class-banner-container');
@@ -22,9 +52,23 @@ export function initClasses() {
   function render() {
     if (!container) return;
     const classInfo = store.get('classInfo');
+    const classes = store.get('activeClasses') || [];
     const user = authService.getCurrentUser();
     const isMember = user && user.classId === store.get('currentClassId');
-    container.innerHTML = renderClassBanner(classInfo, isMember);
+    container.innerHTML = renderClassBanner(classInfo, isMember, classes);
+
+    const switcher = document.getElementById('class-switcher-select');
+    if (switcher) {
+      switcher.addEventListener('change', (e) => {
+        const selectedId = e.target.value;
+        const currentList = store.get('activeClasses') || [];
+        const chosen = currentList.find(c => c.id === selectedId);
+        if (chosen) {
+          store.set('currentClassId', chosen.id, false);
+          store.set('classInfo', chosen, true);
+        }
+      });
+    }
 
     const proposeBtn = document.getElementById('open-propose-class-btn');
     const modalTitle = document.querySelector('#propose-class-modal .modal-header h3');
@@ -114,6 +158,15 @@ export function initClasses() {
   }
 
   store.subscribe('classInfo', render);
+  store.subscribe('activeClasses', render);
   store.subscribe('user', render);
-  render();
+
+  router.registerScreenHook('class', {
+    onEnter: async () => {
+      await syncClasses();
+      render();
+    }
+  });
+
+  syncClasses().then(render);
 }

@@ -18,7 +18,7 @@ import { showToast } from './components/toast/toast.js';
 import { initNavbar } from './components/navbar/navbar.js';
 import { initModal } from './components/modal/modal.js';
 
-import { initClasses } from './features/classes/classes.js';
+import { initClasses, syncClasses } from './features/classes/classes.js';
 import { initStudents } from './features/students/students.js';
 import { initTeachers } from './features/teachers/teachers.js';
 import { initGallery } from './features/gallery/gallery.js';
@@ -64,6 +64,7 @@ async function boot() {
   authService.init();
 
   await authService.ready();
+  await syncClasses();
   router.onAuthReady();
 
   document.getElementById('hero-browse-btn')?.addEventListener('click', async () => {

@@ -81,10 +81,9 @@ export function initTeachers() {
     });
   }
 
-  // P0-6: Screen-scoped subscription on school screen
+  // P0-6: Screen-scoped subscription on school screen (school-wide faculty)
   async function startSubscription() {
-    const classId = store.get('currentClassId') || '';
-    activeSub = await subscribeClassCollection('teachers', classId, (_items, hasMore) => {
+    activeSub = await subscribeClassCollection('teachers', '', (_items, hasMore) => {
       render();
       if (loadMoreContainer) {
         loadMoreContainer.classList.toggle('hidden', !hasMore);
