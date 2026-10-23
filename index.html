@@ -53,12 +53,12 @@
     <!-- Desktop Navigation Links -->
     <div class="navlinks">
       <button class="active" data-screen="home">Home</button>
-      <button data-screen="class">Our Class</button>
-      <button data-screen="memories">Memory Wall</button>
-      <button data-screen="superlatives">Superlatives</button>
+      <button data-screen="class">Classes</button>
       <button data-screen="students">Students</button>
       <button data-screen="school">About School</button>
       <button data-screen="admin" class="admin-nav-item hidden-admin">Admin</button>
+      <button data-screen="memories" class="hidden">Memory Wall</button>
+      <button data-screen="superlatives" class="hidden">Superlatives</button>
     </div>
 
     <!-- Right Controls: Auth & Hamburger -->
@@ -76,12 +76,12 @@
   <div class="mobile-nav-drawer" id="mobile-nav-drawer">
     <div class="mobile-nav-links">
       <button class="active" data-screen="home">🏠 Home</button>
-      <button data-screen="class">🏫 Our Class</button>
-      <button data-screen="memories">💭 Memory Wall</button>
-      <button data-screen="superlatives">🏆 Superlatives</button>
+      <button data-screen="class">🏫 Classes</button>
       <button data-screen="students">👥 Students Directory</button>
       <button data-screen="school">🏛️ About School</button>
       <button data-screen="admin" class="admin-nav-item hidden-admin">🛡️ Admin Console</button>
+      <button data-screen="memories" class="hidden">💭 Memory Wall</button>
+      <button data-screen="superlatives" class="hidden">🏆 Superlatives</button>
     </div>
   </div>
 
@@ -102,22 +102,83 @@
     </section>
   </div>
 
-  <!-- Screen 2: Class Information -->
+  <!-- Screen 2: Classes Hub & Classrooms -->
   <div class="screen" id="class">
-    <section class="section">
-      <div class="section-head">
-        <h2>Our class</h2>
-        <span class="tag mono">SESSION 2025&ndash;26</span>
-      </div>
-      <div id="class-banner-container"></div>
+    <!-- View A: Classes Hub Overview (browse all classes) -->
+    <div id="classes-hub-view">
+      <section class="section">
+        <div class="section-head">
+          <div>
+            <h2>APSACS Classes</h2>
+            <p class="section-head-subtitle">Explore active classrooms, view classmate rosters, and access your class hub</p>
+          </div>
+          <div class="section-actions">
+            <button class="btn btn-primary btn-sm admin-nav-item hidden-admin" id="classes-admin-add-btn">+ Create Class</button>
+          </div>
+        </div>
 
-      <div class="section-actions class-actions-row">
-        <button class="btn btn-outline btn-sm auth-required" id="open-join-class-btn">Join Class via Code</button>
-        <button class="btn btn-primary btn-sm auth-required" id="open-propose-class-btn">+ Propose New Class</button>
-      </div>
+        <div class="toolbar">
+          <div class="search">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9aa39a" stroke-width="2">
+              <circle cx="11" cy="11" r="7"/>
+              <path d="M21 21l-4.3-4.3"/>
+            </svg>
+            <input type="text" id="classes-search-input" placeholder="Search by class name, grade, or teacher…">
+          </div>
+          <div class="chips" id="classes-filter-chips">
+            <span class="chip active" data-filter="All">All</span>
+            <span class="chip" data-filter="Grade 10">Grade 10</span>
+            <span class="chip" data-filter="Grade 9">Grade 9</span>
+            <span class="chip" data-filter="Grade 11">Grade 11 (FSc)</span>
+            <span class="chip" data-filter="Grade 12">Grade 12 (FSc)</span>
+            <span class="chip" data-filter="Middle">Middle Wing</span>
+          </div>
+        </div>
 
-      <div id="class-proposals-container"></div>
-    </section>
+        <!-- Class Cards Grid -->
+        <div class="classes-grid" id="classes-cards-grid"></div>
+      </section>
+    </div>
+
+    <!-- View B: Class Detail View (Roster, Chat, Announcements) -->
+    <div id="class-detail-view" class="hidden">
+      <section class="section">
+        <div class="class-detail-header-bar">
+          <button class="btn btn-outline btn-sm" id="back-to-classes-btn">
+            &larr; Back to All Classes
+          </button>
+        </div>
+
+        <!-- Class Info Banner (dynamically rendered) -->
+        <div id="class-detail-banner-root"></div>
+
+        <!-- Class Sub-Tabs -->
+        <div class="class-subtabs" id="class-subtabs-bar">
+          <button class="class-subtab active" data-tab="students">👥 Students</button>
+          <button class="class-subtab" data-tab="chat">💬 Class Chat</button>
+          <button class="class-subtab" data-tab="announcements">📢 Announcements</button>
+        </div>
+
+        <!-- Sub-Pane 1: Students Roster -->
+        <div class="class-subpane active" id="class-pane-students">
+          <div class="class-students-header">
+            <h3>Registered Students in this Class</h3>
+            <span class="tag mono" id="class-students-count-tag">0 STUDENTS</span>
+          </div>
+          <div class="grid" id="class-students-grid"></div>
+        </div>
+
+        <!-- Sub-Pane 2: Class Chat -->
+        <div class="class-subpane" id="class-pane-chat">
+          <div id="class-chat-root"></div>
+        </div>
+
+        <!-- Sub-Pane 3: Announcements -->
+        <div class="class-subpane" id="class-pane-announcements">
+          <div id="class-announcements-root"></div>
+        </div>
+      </section>
+    </div>
   </div>
 
   <!-- Screen 3: Students Directory -->
@@ -677,6 +738,27 @@
     </div>
   </div>
 
+  <!-- Modal for Posting Class Announcement -->
+  <div class="modal-overlay" id="add-announcement-modal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3>Post Class Announcement</h3>
+        <button class="modal-close" id="close-announcement-modal">&times;</button>
+      </div>
+      <form id="add-announcement-form">
+        <div class="form-group">
+          <label for="ann-title">Announcement Title *</label>
+          <input type="text" id="ann-title" placeholder="e.g. Mathematics Test Chapter 7" required maxlength="100">
+        </div>
+        <div class="form-group">
+          <label for="ann-content">Announcement Details *</label>
+          <textarea id="ann-content" rows="4" placeholder="Important instructions, homework details, or schedule..." required maxlength="800"></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Post Announcement</button>
+      </form>
+    </div>
+  </div>
+
   <!-- Mobile Bottom Tab Bar (Phase 4) -->
   <nav class="bottom-tab-bar" id="mobile-bottom-bar" aria-label="Mobile Bottom Navigation">
     <button class="bottom-tab-btn active" data-screen="home">
@@ -685,15 +767,15 @@
     </button>
     <button class="bottom-tab-btn" data-screen="class">
       <span class="bottom-tab-icon">🏫</span>
-      <span class="bottom-tab-label">Class</span>
-    </button>
-    <button class="bottom-tab-btn" data-screen="memories">
-      <span class="bottom-tab-icon">💭</span>
-      <span class="bottom-tab-label">Memories</span>
+      <span class="bottom-tab-label">Classes</span>
     </button>
     <button class="bottom-tab-btn" data-screen="students">
       <span class="bottom-tab-icon">👥</span>
       <span class="bottom-tab-label">Students</span>
+    </button>
+    <button class="bottom-tab-btn" data-screen="school">
+      <span class="bottom-tab-icon">🏛️</span>
+      <span class="bottom-tab-label">School</span>
     </button>
     <button class="bottom-tab-btn" id="bottom-more-btn" aria-label="More Navigation">
       <span class="bottom-tab-icon">☰</span>

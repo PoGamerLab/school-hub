@@ -1,172 +1,250 @@
 /**
- * Classes screen: shows the class banner and handles join / propose forms.
- * P0-9: Removed unused setOwnMapKey import.
- * P0-3 note: joins are superseded by the Phase 1 gate; the join form remains
- *   as a fallback and the join payload now sends createdAt (not joinedAt) to
- *   satisfy the current Firestore rule for joins.
+ * Classes feature controller (Classes Hub & Classrooms Architecture).
  */
 
 import { store } from '../../core/store/store.js';
 import { authService } from '../../core/auth/auth.js';
 import { router } from '../../core/router/router.js';
-import { renderClassBanner } from './classes.render.js';
-import { showToast } from '../../components/toast/toast.js';
-import { createDocument, updateDocument } from '../../core/db/firestore.js';
 import { fetchActiveClasses } from '../gate/gate.db.js';
+import { renderClassesHubCards, renderClassDetailBanner, renderClassStudentsGrid } from './classes.render.js';
+import { loadAndRenderClassChat, cleanupClassChat } from './classes.chat.js';
+import { loadAndRenderAnnouncements, cleanupAnnouncements } from './classes.announcements.js';
+import { initFirebase } from '../../config/firebase.js';
+
+let selectedClass = null;
+let currentFilter = 'All';
+let currentSearch = '';
+let activeClassStudents = [];
 
 export async function syncClasses() {
   try {
     const classes = await fetchActiveClasses();
     store.set('activeClasses', classes, false);
-
-    const user = authService.getCurrentUser();
-    let currentId = store.get('currentClassId');
-
-    if (user && user.classId && classes.some(c => c.id === user.classId)) {
-      currentId = user.classId;
-    } else if (!currentId || !classes.some(c => c.id === currentId)) {
-      if (classes.length > 0) {
-        currentId = classes[0].id;
-      }
-    }
-
-    const currentClass = classes.find(c => c.id === currentId) || classes[0] || null;
-    if (currentClass) {
-      store.set('currentClassId', currentClass.id, false);
-      store.set('classInfo', currentClass, true);
-    }
-    return { classes, currentClass };
+    return classes;
   } catch (err) {
-    console.warn('[Classes] syncClasses failed:', err);
-    return { classes: [], currentClass: null };
+    console.warn('[Classes] syncClasses error:', err);
+    return [];
   }
 }
 
 export function initClasses() {
-  const container = document.getElementById('class-banner-container');
-  const proposeForm = document.getElementById('propose-class-form');
-  const proposeModal = document.getElementById('propose-class-modal');
-  const joinForm = document.getElementById('join-class-form');
-  const joinModal = document.getElementById('join-class-modal');
+  const hubView = document.getElementById('classes-hub-view');
+  const detailView = document.getElementById('class-detail-view');
+  const cardsGrid = document.getElementById('classes-cards-grid');
+  const searchInput = document.getElementById('classes-search-input');
+  const filterChips = document.getElementById('classes-filter-chips');
+  const backBtn = document.getElementById('back-to-classes-btn');
+  const subtabsBar = document.getElementById('class-subtabs-bar');
+  const studentsGrid = document.getElementById('class-students-grid');
+  const countTag = document.getElementById('class-students-count-tag');
+  const adminAddBtn = document.getElementById('classes-admin-add-btn');
 
-  function render() {
-    if (!container) return;
-    const classInfo = store.get('classInfo');
+  // --- 1. Classes Hub View ---
+  async function renderHub() {
+    if (!cardsGrid) return;
     const classes = store.get('activeClasses') || [];
     const user = authService.getCurrentUser();
-    const isMember = user && user.classId === store.get('currentClassId');
-    container.innerHTML = renderClassBanner(classInfo, isMember, classes);
+    const myClassId = user?.classId || '';
 
-    const switcher = document.getElementById('class-switcher-select');
-    if (switcher) {
-      switcher.addEventListener('change', (e) => {
-        const selectedId = e.target.value;
-        const currentList = store.get('activeClasses') || [];
-        const chosen = currentList.find(c => c.id === selectedId);
-        if (chosen) {
-          store.set('currentClassId', chosen.id, false);
-          store.set('classInfo', chosen, true);
-        }
-      });
-    }
-
-    const proposeBtn = document.getElementById('open-propose-class-btn');
-    const modalTitle = document.querySelector('#propose-class-modal .modal-header h3');
-    const submitBtn = proposeForm?.querySelector('button[type="submit"]');
-    if (store.get('isAdmin')) {
-      if (proposeBtn) proposeBtn.textContent = '+ Create Class';
-      if (modalTitle) modalTitle.textContent = 'Create an Active Class';
-      if (submitBtn) submitBtn.textContent = 'Create Class';
-    }
-  }
-
-  // Propose or Direct Create Class
-  if (proposeForm) {
-    proposeForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const user = authService.getCurrentUser();
-      if (!user) {
-        showToast('Please sign in to create or propose a class.', 'error');
-        return;
+    // Calculate student counts per class
+    const counts = {};
+    try {
+      const fb = await initFirebase();
+      if (fb && fb.db) {
+        const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const snap = await getDocs(collection(fb.db, 'students'));
+        snap.forEach(d => {
+          const cid = d.data().classId;
+          if (cid) counts[cid] = (counts[cid] || 0) + 1;
+        });
       }
-      const name    = document.getElementById('propose-class-name').value.trim();
-      const grade   = document.getElementById('propose-class-grade').value.trim();
-      const section = document.getElementById('propose-class-section').value.trim();
-      const isAdmin = store.get('isAdmin');
-      const slug    = (name + '-' + section).toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30);
-      const targetId = isAdmin ? (slug || user.uid) : user.uid;
-      const status  = isAdmin ? 'active' : 'pending';
+    } catch (e) {
+      console.warn('Count fetch warning:', e);
+    }
 
-      try {
-        await createDocument('classes', {
-          name,
-          grade,
-          section,
-          status,
-          createdBy: user.uid,
-          supporterUids: [user.uid]
-        }, targetId);
-        proposeForm.reset();
-        proposeModal?.classList.remove('active');
-        if (isAdmin) {
-          showToast(`Class "${name}" created and activated!`, 'success');
-          store.set('currentClassId', targetId);
-          store.set('classInfo', { id: targetId, name, grade, section, status: 'active' });
+    const filtered = classes.filter(c => {
+      const q = currentSearch.toLowerCase();
+      const matchSearch = !q ||
+        (c.name && c.name.toLowerCase().includes(q)) ||
+        (c.grade && c.grade.toLowerCase().includes(q)) ||
+        (c.classTeacher && c.classTeacher.toLowerCase().includes(q)) ||
+        c.id.toLowerCase().includes(q);
+
+      const f = currentFilter.toLowerCase();
+      let matchFilter = f === 'all';
+      if (!matchFilter) {
+        if (f === 'middle') {
+          matchFilter = c.grade && (c.grade.includes('6') || c.grade.includes('7') || c.grade.includes('8'));
         } else {
-          showToast('Class proposed! Get 4 more classmates to support it.', 'success');
+          matchFilter = c.grade && c.grade.toLowerCase().includes(f);
         }
-      } catch (err) {
-        console.error('Failed to create/propose class:', err);
-        showToast(`Error: ${err.message}`, 'error');
+      }
+      return matchSearch && matchFilter;
+    });
+
+    cardsGrid.innerHTML = renderClassesHubCards(filtered, myClassId, counts);
+  }
+
+  // --- 2. Class Detail View ---
+  async function openClassDetail(classId) {
+    const classes = store.get('activeClasses') || [];
+    const cls = classes.find(c => c.id === classId);
+    if (!cls) return;
+
+    selectedClass = cls;
+    if (hubView) hubView.classList.add('hidden');
+    if (detailView) detailView.classList.remove('hidden');
+
+    const user = authService.getCurrentUser();
+    const isMember = user && user.classId === cls.id;
+
+    // Render Banner
+    const bannerRoot = document.getElementById('class-detail-banner-root');
+    if (bannerRoot) {
+      bannerRoot.innerHTML = renderClassDetailBanner(cls, isMember);
+    }
+
+    // Default to Students sub-tab
+    switchSubTab('students');
+    await loadClassStudents(cls.id);
+  }
+
+  async function loadClassStudents(classId) {
+    if (!studentsGrid) return;
+    try {
+      const fb = await initFirebase();
+      if (!fb || !fb.db) return;
+      const { collection, getDocs, query, where } =
+        await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+
+      const q = query(collection(fb.db, 'students'), where('classId', '==', classId));
+      const snap = await getDocs(q);
+      activeClassStudents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+      if (countTag) {
+        countTag.textContent = `${activeClassStudents.length} ${activeClassStudents.length === 1 ? 'STUDENT' : 'STUDENTS'}`;
+      }
+      studentsGrid.innerHTML = renderClassStudentsGrid(activeClassStudents);
+    } catch (err) {
+      console.error('Failed to load class students:', err);
+      studentsGrid.innerHTML = '<div class="admin-empty-notice">Could not load students for this class.</div>';
+    }
+  }
+
+  function switchSubTab(tabKey) {
+    if (!subtabsBar) return;
+    subtabsBar.querySelectorAll('.class-subtab').forEach(t => {
+      t.classList.toggle('active', t.dataset.tab === tabKey);
+    });
+
+    document.querySelectorAll('.class-subpane').forEach(p => {
+      p.classList.remove('active');
+    });
+
+    const targetPane = document.getElementById(`class-pane-${tabKey}`);
+    if (targetPane) targetPane.classList.add('active');
+
+    if (selectedClass) {
+      if (tabKey === 'chat') {
+        loadAndRenderClassChat(selectedClass.id, selectedClass.name || selectedClass.id);
+      } else if (tabKey === 'announcements') {
+        loadAndRenderAnnouncements(selectedClass);
+      }
+    }
+  }
+
+  function closeClassDetail() {
+    cleanupClassChat();
+    cleanupAnnouncements();
+    selectedClass = null;
+    if (detailView) detailView.classList.add('hidden');
+    if (hubView) hubView.classList.remove('hidden');
+    renderHub();
+  }
+
+  // --- 3. Events ---
+  if (cardsGrid) {
+    cardsGrid.addEventListener('click', (e) => {
+      const card = e.target.closest('.class-card');
+      if (card && card.dataset.classId) {
+        openClassDetail(card.dataset.classId);
       }
     });
   }
 
-  // Join Class (P0-3: send createdAt, not joinedAt)
-  if (joinForm) {
-    joinForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const user = authService.getCurrentUser();
-      if (!user) {
-        showToast('Please sign in to join a class.', 'error');
-        return;
-      }
-      const classId = document.getElementById('join-class-id').value.trim().toLowerCase();
-      const code    = document.getElementById('join-class-code').value.trim();
-
-      if (!classId || !code) {
-        showToast('Enter both the class ID and invite code.', 'error');
-        return;
-      }
-
-      try {
-        // P0-3: payload uses classId + code + createdAt (rules allow these keys)
-        await createDocument('joins', { classId, code }, user.uid);
-        await updateDocument('users', user.uid, { classId });
-
-        store.set('currentClassId', classId, false);
-        authService.setUser({ ...user, classId });
-
-        joinForm.reset();
-        joinModal?.classList.remove('active');
-        showToast(`Joined class ${classId}!`, 'success');
-      } catch (err) {
-        console.error('Join failed:', err);
-        showToast('Incorrect class code or class not found.', 'error');
+  if (studentsGrid) {
+    studentsGrid.addEventListener('click', (e) => {
+      const card = e.target.closest('.card');
+      if (card && card.dataset.id) {
+        router.navigate('profile', { id: card.dataset.id });
       }
     });
   }
 
-  store.subscribe('classInfo', render);
-  store.subscribe('activeClasses', render);
-  store.subscribe('user', render);
+  if (backBtn) {
+    backBtn.addEventListener('click', closeClassDetail);
+  }
 
+  if (subtabsBar) {
+    subtabsBar.addEventListener('click', (e) => {
+      const btn = e.target.closest('.class-subtab');
+      if (btn && btn.dataset.tab) {
+        switchSubTab(btn.dataset.tab);
+      }
+    });
+  }
+
+  if (filterChips) {
+    filterChips.addEventListener('click', (e) => {
+      const chip = e.target.closest('.chip');
+      if (!chip) return;
+      filterChips.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      currentFilter = chip.dataset.filter || 'All';
+      renderHub();
+    });
+  }
+
+  if (searchInput) {
+    let t = null;
+    searchInput.addEventListener('input', (e) => {
+      clearTimeout(t);
+      t = setTimeout(() => {
+        currentSearch = e.target.value.trim();
+        renderHub();
+      }, 150);
+    });
+  }
+
+  if (adminAddBtn) {
+    adminAddBtn.addEventListener('click', () => {
+      router.navigate('admin');
+    });
+  }
+
+  // Lifecycle
   router.registerScreenHook('class', {
     onEnter: async () => {
       await syncClasses();
-      render();
+      const rawHash = window.location.hash || '';
+      const params = new URLSearchParams(rawHash.split('?')[1] || '');
+      const classIdParam = params.get('id');
+
+      if (classIdParam) {
+        openClassDetail(classIdParam);
+      } else {
+        closeClassDetail();
+      }
+    },
+    onLeave: () => {
+      cleanupClassChat();
+      cleanupAnnouncements();
     }
   });
 
-  syncClasses().then(render);
+  store.subscribe('activeClasses', () => {
+    if (router.activeScreenId === 'class' && !selectedClass) {
+      renderHub();
+    }
+  });
 }

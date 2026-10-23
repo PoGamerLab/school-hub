@@ -1,55 +1,390 @@
-/* Class Screen Styles */
-.class-switcher-bar {
+/* Classes Hub & Screen Styles */
+.classes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.class-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  cursor: pointer;
+  position: relative;
+}
+
+.class-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 24px rgba(27, 42, 33, 0.08);
+  border-color: var(--pine-light);
+}
+
+.class-card.is-my-class {
+  border: 2px solid var(--gold);
+  background: #fdfcf7;
+}
+
+.class-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.class-card-name {
+  font-family: 'Spectral', serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--pine-deep);
+  line-height: 1.25;
+}
+
+.class-card-slug {
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px;
+  background: var(--paper-dim);
+  color: var(--pine);
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+.class-card-teacher {
+  font-size: 13.5px;
+  color: #556056;
+  margin-bottom: 16px;
   display: flex;
   align-items: center;
+  gap: 6px;
+}
+
+.class-card-footer {
+  display: flex;
   justify-content: space-between;
+  align-items: center;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  margin-top: auto;
+}
+
+.class-card-count {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pine);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.class-my-badge {
+  background: var(--gold);
+  color: var(--pine-deep);
+  font-family: 'IBM Plex Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* Class Detail View Header & Subtabs */
+.class-detail-header-bar {
   margin-bottom: 16px;
+}
+
+.class-subtabs {
+  display: flex;
+  gap: 8px;
+  margin: 24px 0 18px;
+  border-bottom: 2px solid var(--line);
+  padding-bottom: 2px;
+  overflow-x: auto;
+}
+
+.class-subtab {
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 10px 18px;
+  font-family: 'Work Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: #647065;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  margin-bottom: -2px;
+}
+
+.class-subtab:hover {
+  color: var(--pine);
+}
+
+.class-subtab.active {
+  color: var(--pine-deep);
+  border-bottom-color: var(--pine);
+}
+
+.class-subpane {
+  display: none;
+}
+
+.class-subpane.active {
+  display: block;
+}
+
+.class-students-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.class-students-header h3 {
+  font-size: 18px;
+  color: var(--pine-deep);
+}
+
+/* Class Private Lock Box */
+.class-private-lock-box {
+  background: #fff;
+  border: 1px dashed var(--line);
+  border-radius: 14px;
+  padding: 48px 24px;
+  text-align: center;
+  max-width: 520px;
+  margin: 32px auto;
+}
+
+.class-private-lock-icon {
+  font-size: 40px;
+  margin-bottom: 12px;
+}
+
+.class-private-lock-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--pine-deep);
+  margin-bottom: 8px;
+}
+
+.class-private-lock-desc {
+  font-size: 14px;
+  color: #647065;
+  line-height: 1.5;
+}
+
+/* Class Chat Styles */
+.class-chat-container {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  height: 580px;
+  max-height: 75vh;
+  overflow: hidden;
+}
+
+.class-chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.class-chat-msg {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.class-chat-msg.is-own {
+  flex-direction: row-reverse;
+}
+
+.class-chat-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--pine-light);
+  color: var(--pine-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.class-chat-body {
+  max-width: 72%;
+  display: flex;
+  flex-direction: column;
+}
+
+.class-chat-msg.is-own .class-chat-body {
+  align-items: flex-end;
+}
+
+.class-chat-meta {
+  font-size: 11.5px;
+  color: #727e73;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.class-chat-bubble {
+  background: var(--paper-dim);
+  color: var(--ink);
+  padding: 10px 14px;
+  border-radius: 12px;
+  border-top-left-radius: 2px;
+  font-size: 14px;
+  line-height: 1.45;
+  word-break: break-word;
+  position: relative;
+}
+
+.class-chat-msg.is-own .class-chat-bubble {
+  background: var(--pine);
+  color: #fff;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 2px;
+}
+
+.class-chat-delete-btn {
+  background: none;
+  border: none;
+  color: #a33;
+  font-size: 11px;
+  cursor: pointer;
+  padding: 2px 4px;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+  margin-top: 3px;
+}
+
+.class-chat-delete-btn:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+.class-chat-input-bar {
+  display: flex;
+  gap: 10px;
+  padding: 14px 18px;
+  background: #faf9f5;
+  border-top: 1px solid var(--line);
+}
+
+.class-chat-input {
+  flex: 1;
+  padding: 10px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+}
+
+.class-chat-input:focus {
+  border-color: var(--pine);
+}
+
+/* Announcements Styles */
+.class-announcements-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
   gap: 12px;
   flex-wrap: wrap;
 }
 
-.class-switcher-label {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--pine-deep);
-  font-weight: 600;
+.class-announcements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
-.class-switcher-select {
-  padding: 6px 12px;
-  border-radius: 8px;
-  border: 1px solid var(--line);
+.announcement-card {
   background: #fff;
-  font-size: 13.5px;
-  color: var(--pine-deep);
-  font-weight: 500;
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--gold);
+  border-radius: 12px;
+  padding: 20px 24px;
 }
 
+.announcement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.announcement-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--pine-deep);
+}
+
+.announcement-meta {
+  font-size: 12px;
+  color: #647065;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.announcement-content {
+  font-size: 14px;
+  color: var(--ink);
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.announcement-delete-btn {
+  background: none;
+  border: none;
+  color: var(--red);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.announcement-delete-btn:hover {
+  background: #fee;
+}
+
+/* Existing class banner style retained */
 .class-banner {
   background: var(--pine);
   color: var(--paper);
   border-radius: 16px;
-  padding: 32px 36px;
+  padding: 28px 32px;
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-  flex-wrap: wrap;
+  margin-bottom: 20px;
   position: relative;
   overflow: hidden;
-}
-
-.class-banner::after {
-  content: "";
-  position: absolute;
-  top: -40%;
-  right: -8%;
-  width: 220px;
-  height: 220px;
-  border-radius: 50%;
-  background: radial-gradient(circle, rgba(217, 164, 65, 0.18) 0%, transparent 70%);
 }
 
 .class-banner-content {
@@ -79,83 +414,17 @@
 }
 
 .class-avatar {
-  position: relative;
-  z-index: 2;
-  width: 72px;
-  height: 72px;
+  width: 68px;
+  height: 68px;
   border-radius: 50%;
   background: var(--gold);
   display: flex;
   align-items: center;
   justify-content: center;
   font-family: 'Spectral', serif;
-  font-size: 22px;
+  font-size: 20px;
   color: var(--pine-deep);
   flex-shrink: 0;
   font-weight: 700;
   border: 3px solid rgba(248, 245, 236, 0.5);
-}
-
-.proposals-section {
-  margin-top: 36px;
-  padding-top: 24px;
-  border-top: 1px solid var(--line);
-}
-
-.proposals-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.proposal-card {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 16px 20px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 16px;
-  flex-wrap: wrap;
-}
-
-.proposal-title {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--pine-deep);
-}
-
-.proposal-status {
-  font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px;
-  color: var(--emerald);
-  background: var(--paper-dim);
-  padding: 4px 8px;
-  border-radius: 4px;
-  margin-left: 8px;
-}
-
-.proposal-info {
-  font-size: 13px;
-  color: #6b7268;
-  margin-top: 4px;
-}
-
-.proposals-heading {
-  font-size: 18px;
-  margin-bottom: 12px;
-  color: var(--pine);
-}
-
-@media (max-width: 600px) {
-  .class-banner {
-    padding: 24px 18px;
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .proposal-card {
-    flex-direction: column;
-    align-items: flex-start;
-  }
 }

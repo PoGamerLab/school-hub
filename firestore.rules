@@ -156,11 +156,30 @@ service cloud.firestore {
     match /classes/{classId} {
       allow read: if resource.data.status == 'active' || (isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin()));
       allow write: if isAdmin();
+
+      match /announcements/{annId} {
+        allow read: if isActive() && inMyClass(classId);
+        allow create: if isActive() && inMyClass(classId) && siteWritable() &&
+          (isAdmin() || (exists(/databases/$(database)/documents/classes/$(classId)) && get(/databases/$(database)/documents/classes/$(classId)).data.monitorUid == request.auth.uid));
+        allow update: if isAdmin();
+        allow delete: if isAdmin() || (isActive() && resource.data.authorUid == request.auth.uid);
+      }
+    }
+
+    // --- 7b. classChats/{classId}/messages/{msgId} (Members-only class chat) ---
+    match /classChats/{classId}/messages/{msgId} {
+      allow read: if isActive() && inMyClass(classId);
+      allow create: if isActive() && inMyClass(classId) && siteWritable() &&
+        request.resource.data.authorUid == request.auth.uid &&
+        request.resource.data.classId == classId &&
+        request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500 &&
+        request.resource.data.createdAt == request.time;
+      allow delete: if isAdmin() || (isActive() && resource.data.authorUid == request.auth.uid);
     }
 
     // --- 8. students/{uid} (Activation batch creation or Admin creation) ---
     match /students/{uid} {
-      allow read: if isActive() && inMyClass(resource.data.classId);
+      allow read: if isActive();
 
       allow create: if (isAdmin() && siteWritable() && request.resource.data.ownerUid == uid) || (
         isOwner(uid) && siteWritable() &&
