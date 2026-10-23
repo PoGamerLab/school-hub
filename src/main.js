@@ -17,6 +17,7 @@ import { store } from './core/store/store.js';
 import { showToast } from './components/toast/toast.js';
 import { initNavbar } from './components/navbar/navbar.js';
 import { initModal } from './components/modal/modal.js';
+import { initSiteConfig } from './core/siteConfig.js';
 
 import { initClasses, syncClasses } from './features/classes/classes.js';
 import { initStudents } from './features/students/students.js';
@@ -57,6 +58,7 @@ async function boot() {
   initMemories();
   initGate();
   initOnboarding();
+  initSiteConfig();
 
   router.init();
 

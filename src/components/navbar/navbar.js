@@ -71,11 +71,13 @@ export function initNavbar() {
     const isRestricted = !!(user && !isAdmin && (user.status === 'needs_gate' || user.status === 'needs_profile' || user.status === 'revoked' || user.banned));
     const navlinks = document.querySelector('.navlinks');
     const navToggle = document.getElementById('nav-toggle-btn');
+    const bottomBar = document.getElementById('mobile-bottom-bar');
 
     // Only hide tabs during the student gate/onboarding flow
     // Signed-out visitors, active members, and admins always see navigation
     if (navlinks) navlinks.classList.toggle('hidden-auth', isRestricted);
     if (navToggle) navToggle.classList.toggle('hidden-auth', isRestricted);
+    if (bottomBar) bottomBar.classList.toggle('hidden-auth', isRestricted);
     if (isRestricted && mobileDrawer) mobileDrawer.classList.remove('open');
   }
 
@@ -150,6 +152,32 @@ export function initNavbar() {
     showToast('Signed out.');
     window.location.hash = '#home';
   });
+
+  // Mobile Bottom Tab Bar (Phase 4)
+  const bottomBar = document.getElementById('mobile-bottom-bar');
+  if (bottomBar) {
+    bottomBar.addEventListener('click', (e) => {
+      const btn = e.target.closest('.bottom-tab-btn');
+      if (!btn) return;
+      if (btn.id === 'bottom-more-btn') {
+        const isOpen = mobileDrawer?.classList.toggle('open');
+        toggleBtn?.classList.toggle('active', isOpen);
+        return;
+      }
+      const screen = btn.dataset.screen;
+      if (screen) {
+        mobileDrawer?.classList.remove('open');
+        toggleBtn?.classList.remove('active');
+        router.navigate(screen);
+      }
+    });
+
+    store.subscribe('activeScreen', (screen) => {
+      bottomBar.querySelectorAll('.bottom-tab-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.screen === screen);
+      });
+    });
+  }
 
   store.subscribe('user', (user) => {
     renderAuth(user);

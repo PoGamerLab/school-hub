@@ -1,5 +1,5 @@
 /**
- * Administrator Panel logic (Phase 1, section 4.7).
+ * Administrator Panel logic (Phase 3 v2 Architecture).
  */
 
 import { store } from '../../core/store/store.js';
@@ -12,11 +12,16 @@ import { fetchActiveClasses } from '../gate/gate.db.js';
 import { syncClasses } from '../classes/classes.js';
 import { normalizeAnswer } from '../../core/utils/normalizeAnswer.js';
 import { initFirebase } from '../../config/firebase.js';
+import { logAdminAction } from '../../core/siteConfig.js';
+import { loadAndRenderMembers } from './admin.members.js';
+import { loadAndRenderSiteControls, loadAndRenderActivityLog } from './admin.controls.js';
 
 export function initAdmin() {
   const reportsContainer = document.getElementById('admin-reports-list');
   const gateEditorContainer = document.getElementById('admin-gate-editor-root');
   const classManagerContainer = document.getElementById('admin-class-manager-root');
+  const tabBar = document.getElementById('admin-tab-bar');
+
   function updateAdminVisibility() {
     const isAdmin = store.get('isAdmin');
     document.querySelectorAll('[data-screen="admin"]').forEach(el => {
@@ -24,6 +29,47 @@ export function initAdmin() {
     });
   }
 
+  // --- Admin Tab Navigation ---
+  function initTabs() {
+    if (!tabBar) return;
+    tabBar.addEventListener('click', (e) => {
+      const tabBtn = e.target.closest('.admin-tab');
+      if (!tabBtn) return;
+      const tabKey = tabBtn.dataset.tab;
+      if (!tabKey) return;
+
+      tabBar.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+      tabBtn.classList.add('active');
+
+      document.querySelectorAll('.admin-tab-pane').forEach(pane => {
+        pane.classList.remove('active');
+      });
+
+      const targetPane = document.getElementById(`admin-pane-${tabKey}`);
+      if (targetPane) {
+        targetPane.classList.add('active');
+      }
+
+      loadTabContent(tabKey);
+    });
+  }
+
+  function loadTabContent(tabKey) {
+    if (tabKey === 'classes-gate') {
+      loadAndRenderClassManager();
+      loadAndRenderGateEditor();
+    } else if (tabKey === 'moderation') {
+      renderReports();
+    } else if (tabKey === 'members') {
+      loadAndRenderMembers();
+    } else if (tabKey === 'controls') {
+      loadAndRenderSiteControls();
+    } else if (tabKey === 'activity') {
+      loadAndRenderActivityLog();
+    }
+  }
+
+  // --- Moderation Queue ---
   async function renderReports() {
     if (!reportsContainer) return;
     let flaggedMemories = [];
@@ -57,6 +103,7 @@ export function initAdmin() {
     reportsContainer.innerHTML = allFlagged.map(m => renderReportedMemoryRow(m)).join('');
   }
 
+  // --- Gate Questions & Answers Editor ---
   async function loadAndRenderGateEditor() {
     if (!gateEditorContainer) return;
     try {
@@ -74,6 +121,7 @@ export function initAdmin() {
     }
   }
 
+  // --- Class Management ---
   async function loadAndRenderClassManager() {
     if (!classManagerContainer) return;
     try {
@@ -144,6 +192,7 @@ export function initAdmin() {
           supporterUids: user ? [user.uid] : []
         }, true, 'createdAt');
 
+        await logAdminAction('CREATE_CLASS', classId, `Created class: ${name} (Teacher: ${classTeacher})`);
         showToast(`Class "${name}" created and active!`, 'success');
         await syncClasses();
         await Promise.all([loadAndRenderClassManager(), loadAndRenderGateEditor()]);
@@ -165,6 +214,7 @@ export function initAdmin() {
         if (!confirm(`Are you sure you want to delete class ${id}?`)) return;
         try {
           await deleteDocument('classes', id);
+          await logAdminAction('DELETE_CLASS', id, `Deleted class ${id}`);
           showToast(`Class ${id} deleted.`, 'info');
           await syncClasses();
           await Promise.all([loadAndRenderClassManager(), loadAndRenderGateEditor()]);
@@ -223,6 +273,7 @@ export function initAdmin() {
           })
         ]);
 
+        await logAdminAction('UPDATE_GATE', '', 'Updated gate questions & normalized answers');
         showToast('Gate questions and normalized answers saved!', 'success');
       } catch (err) {
         console.error('Failed to save gate configuration:', err);
@@ -244,6 +295,7 @@ export function initAdmin() {
         const type = restoreBtn.dataset.type || 'memories';
         try {
           await updateDocument(type, id, { reports: {}, adminReviewed: true });
+          await logAdminAction('DISMISS_REPORTS', id, `Cleared flags from ${type}`);
           showToast('Reports cleared; item remains active.', 'success');
           await renderReports();
         } catch (err) {
@@ -256,8 +308,10 @@ export function initAdmin() {
       if (deleteBtn) {
         const id = deleteBtn.dataset.id;
         const type = deleteBtn.dataset.type || 'memories';
+        if (!confirm('Permanently delete this reported post?')) return;
         try {
           await deleteDocument(type, id);
+          await logAdminAction('DELETE_POST', id, `Permanently deleted reported ${type}`);
           showToast('Flagged item permanently deleted.', 'info');
           await renderReports();
         } catch (err) {
@@ -267,11 +321,12 @@ export function initAdmin() {
     });
   }
 
+  initTabs();
+
   router.registerScreenHook('admin', {
     onEnter: () => {
-      renderReports();
-      loadAndRenderGateEditor();
-      loadAndRenderClassManager();
+      const activeTab = tabBar?.querySelector('.admin-tab.active')?.dataset.tab || 'classes-gate';
+      loadTabContent(activeTab);
     },
     onLeave: () => {}
   });

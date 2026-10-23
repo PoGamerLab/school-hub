@@ -132,17 +132,33 @@
   margin-left: 6px;
 }
 
-@media (max-width: 600px) {
+@media (max-width: 768px) {
   .modal-overlay {
-    padding: 10px;
+    align-items: flex-end;
+    padding: 0;
   }
   .modal-box {
-    padding: 20px 16px;
-    border-radius: 14px;
-    max-height: 88vh;
+    width: 100%;
+    max-width: 100%;
+    border-radius: 20px 20px 0 0;
+    max-height: 92vh;
+    padding: 24px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+    transform: translateY(100%);
+  }
+  .modal-box::before {
+    content: '';
+    display: block;
+    width: 44px;
+    height: 5px;
+    background: #cbd5e1;
+    border-radius: 99px;
+    margin: -12px auto 16px;
+  }
+  .modal-overlay.active .modal-box {
+    transform: translateY(0);
   }
   .modal-header h3 {
-    font-size: 18px;
+    font-size: 19px;
   }
   .form-row {
     flex-direction: column;

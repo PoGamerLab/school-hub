@@ -35,6 +35,10 @@
 
   <!-- Live Application Error / Status Banner -->
   <div id="app-error-banner" class="error-banner hidden"></div>
+  <div id="site-announcement-banner" class="site-announcement hidden"></div>
+  <div id="site-readonly-banner" class="site-readonly hidden">
+    ⚠️ The site is currently in read-only mode by administration. Posting and voting are temporarily paused.
+  </div>
 
   <!-- Top Navigation Bar -->
   <nav class="topnav">
@@ -130,14 +134,18 @@
             <circle cx="11" cy="11" r="7"/>
             <path d="M21 21l-4.3-4.3"/>
           </svg>
-          <input type="text" placeholder="Search by name, roll number, or hobby&hellip;">
+          <input type="text" placeholder="Search by name, house, subject, or hobby&hellip;">
         </div>
         <div class="chips">
-          <span class="chip active">All</span>
-          <span class="chip">Sports</span>
-          <span class="chip">Music</span>
-          <span class="chip">Coding</span>
-          <span class="chip">Art</span>
+          <span class="chip active" data-filter="All">All</span>
+          <span class="chip" data-filter="Unity">🔴 Unity</span>
+          <span class="chip" data-filter="Faith">🟢 Faith</span>
+          <span class="chip" data-filter="Discipline">🟡 Discipline</span>
+          <span class="chip" data-filter="Tolerance">🔵 Tolerance</span>
+          <span class="chip" data-filter="Sports">Sports</span>
+          <span class="chip" data-filter="Academics">Academics</span>
+          <span class="chip" data-filter="Coding">Coding</span>
+          <span class="chip" data-filter="Art">Art</span>
         </div>
       </div>
 
@@ -305,36 +313,65 @@
       <div class="section-head">
         <div>
           <h2>Class Administrator Panel <span class="admin-badge">ADMIN</span></h2>
-          <p class="section-head-subtitle">Manage class moderation, reports, and emergency controls</p>
+          <p class="section-head-subtitle">Manage class moderation, verification gate, users, and site controls</p>
         </div>
       </div>
 
-      <!-- Class Management (Direct Active Class Creator for Admin) -->
-      <div class="admin-card">
-        <h3>Class Management</h3>
-        <p class="section-head-subtitle">Create and manage active classes. Classes created here are activated immediately and appear in the student gate.</p>
-        <div id="admin-class-manager-root"></div>
+      <div class="admin-tabs" id="admin-tab-bar">
+        <button class="admin-tab active" data-tab="classes-gate">🏫 Classes &amp; Gate</button>
+        <button class="admin-tab" data-tab="moderation">🚩 Moderation Queue</button>
+        <button class="admin-tab" data-tab="members">👥 Members &amp; Sign-ups</button>
+        <button class="admin-tab" data-tab="controls">⚙️ Site Controls</button>
+        <button class="admin-tab" data-tab="activity">📜 Audit Log</button>
       </div>
 
-      <div class="admin-card">
-        <h3>Flagged &amp; Reported Items</h3>
-        <div id="admin-reports-list">
-          <!-- Populated by admin.js -->
+      <!-- Tab 1: Classes & Gate -->
+      <div class="admin-tab-pane active" id="admin-pane-classes-gate">
+        <div class="admin-card">
+          <h3>APSACS Class Management</h3>
+          <p class="section-head-subtitle">Create and manage active classes. Classes created here appear immediately in the student gate.</p>
+          <div id="admin-class-manager-root"></div>
+        </div>
+
+        <div class="admin-card">
+          <h3>Gate Verification Questions &amp; Accepted Answers</h3>
+          <p class="section-head-subtitle">Configure the 3 questions and accepted answers for student verification. Answers are automatically normalized.</p>
+          <div id="admin-gate-editor-root"></div>
         </div>
       </div>
 
-      <!-- Gate Questions & Answers Editor (Phase 1, section 4.7) -->
-      <div class="admin-card">
-        <h3>Gate Verification Questions &amp; Accepted Answers</h3>
-        <p class="section-head-subtitle">Configure the 3 questions and accepted answers for student verification. Answers are automatically normalized.</p>
-        <div id="admin-gate-editor-root"></div>
+      <!-- Tab 2: Moderation Queue -->
+      <div class="admin-tab-pane" id="admin-pane-moderation">
+        <div class="admin-card">
+          <h3>Flagged &amp; Reported Items</h3>
+          <p class="section-head-subtitle">Student reports on memories and superlatives with reasons. Items remain public until you choose to dismiss or delete.</p>
+          <div id="admin-reports-list"></div>
+        </div>
       </div>
 
-      <div class="admin-card">
-        <h3>System Status</h3>
-        <p class="system-status-note">School Hub is running in synchronized client state with Firestore security rules enforcement.</p>
-        <div class="system-node-tag">
-          Active Class: 10-B &middot; Session: 2025-26 &middot; Node: APSACS Skardu
+      <!-- Tab 3: Members & Sign-ups -->
+      <div class="admin-tab-pane" id="admin-pane-members">
+        <div class="admin-card">
+          <h3>Registered Users &amp; Membership</h3>
+          <p class="section-head-subtitle">Review new sign-ups, approve access, reset gate attempts, move classes, or suspend accounts.</p>
+          <div id="admin-members-root"></div>
+        </div>
+      </div>
+
+      <!-- Tab 4: Site Controls -->
+      <div class="admin-tab-pane" id="admin-pane-controls">
+        <div class="admin-card">
+          <h3>Global Site Controls</h3>
+          <div id="admin-controls-root"></div>
+        </div>
+      </div>
+
+      <!-- Tab 5: Audit Log -->
+      <div class="admin-tab-pane" id="admin-pane-activity">
+        <div class="admin-card">
+          <h3>Administrative Audit Trail</h3>
+          <p class="section-head-subtitle">Recent administrative actions recorded for security.</p>
+          <div id="admin-activity-root"></div>
         </div>
       </div>
     </section>
@@ -639,6 +676,30 @@
       </form>
     </div>
   </div>
+
+  <!-- Mobile Bottom Tab Bar (Phase 4) -->
+  <nav class="bottom-tab-bar" id="mobile-bottom-bar" aria-label="Mobile Bottom Navigation">
+    <button class="bottom-tab-btn active" data-screen="home">
+      <span class="bottom-tab-icon">🏠</span>
+      <span class="bottom-tab-label">Home</span>
+    </button>
+    <button class="bottom-tab-btn" data-screen="class">
+      <span class="bottom-tab-icon">🏫</span>
+      <span class="bottom-tab-label">Class</span>
+    </button>
+    <button class="bottom-tab-btn" data-screen="memories">
+      <span class="bottom-tab-icon">💭</span>
+      <span class="bottom-tab-label">Memories</span>
+    </button>
+    <button class="bottom-tab-btn" data-screen="students">
+      <span class="bottom-tab-icon">👥</span>
+      <span class="bottom-tab-label">Students</span>
+    </button>
+    <button class="bottom-tab-btn" id="bottom-more-btn" aria-label="More Navigation">
+      <span class="bottom-tab-icon">☰</span>
+      <span class="bottom-tab-label">More</span>
+    </button>
+  </nav>
 
   <footer>APSACS Skardu &mdash; Army Public School &amp; College &middot; "I Shall Rise &amp; Shine" &middot; Phone: 05831-50248 &middot; FBISE Islamabad Affiliated</footer>
 

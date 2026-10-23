@@ -149,3 +149,139 @@ export function renderGateEditor(questions = {}, answers = {}, classes = []) {
     </form>
   `;
 }
+
+export function renderMembersManager(users = [], classes = []) {
+  if (users.length === 0) {
+    return `<div class="admin-empty-notice">No registered accounts found in the database.</div>`;
+  }
+
+  const rowsHtml = users.map(u => {
+    const safeUid = escapeAttr(u.id);
+    const safeName = escapeHtml(u.displayName || 'Unnamed User');
+    const safeEmail = escapeHtml(u.email || 'No email');
+    const safeClass = escapeHtml(u.classId || 'None');
+    const isBanned = u.banned === true;
+    const status = isBanned ? 'banned' : (u.status || 'needs_gate');
+
+    const statusBadgeClass = {
+      active: 'tag-active',
+      needs_gate: 'tag-pending',
+      needs_profile: 'tag-pending',
+      revoked: 'tag-danger',
+      banned: 'tag-danger'
+    }[status] || 'tag-pending';
+
+    const classOptions = classes.map(c => 
+      `<option value="${escapeAttr(c.id)}" ${c.id === u.classId ? 'selected' : ''}>${escapeHtml(c.name || c.id)}</option>`
+    ).join('');
+
+    return `
+      <div class="admin-user-row" data-uid="${safeUid}">
+        <div class="admin-user-info">
+          <div class="admin-user-name">${safeName} <span class="tag ${statusBadgeClass}">${escapeHtml(status.toUpperCase())}</span></div>
+          <div class="admin-user-meta">${safeEmail} &middot; Class: <strong>${safeClass}</strong> &middot; UID: <span class="mono">${safeUid.slice(0, 8)}...</span></div>
+        </div>
+        <div class="admin-user-actions">
+          ${status !== 'active' && !isBanned ? `
+            <button class="btn btn-sm btn-restore" data-action="approve-user" data-uid="${safeUid}">Approve</button>
+          ` : ''}
+          ${(status === 'active' || status === 'needs_profile') ? `
+            <button class="btn btn-sm btn-outline" data-action="reset-gate" data-uid="${safeUid}" title="Reset gate attempts">Reset Gate</button>
+          ` : ''}
+          <div class="admin-move-class-box">
+            <select class="admin-user-class-select" data-uid="${safeUid}">
+              <option value="">Move Class...</option>
+              ${classOptions}
+            </select>
+          </div>
+          ${!isBanned ? `
+            <button class="btn btn-sm btn-danger" data-action="ban-user" data-uid="${safeUid}">Ban</button>
+          ` : `
+            <button class="btn btn-sm btn-restore" data-action="unban-user" data-uid="${safeUid}">Unban</button>
+          `}
+          ${status !== 'revoked' ? `
+            <button class="btn btn-sm btn-outline-danger" data-action="revoke-user" data-uid="${safeUid}">Revoke</button>
+          ` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="admin-users-list">
+      <div class="admin-users-toolbar">
+        <input type="text" id="admin-user-search-input" placeholder="Search members by name or email..." class="admin-search-input">
+      </div>
+      <div id="admin-users-rows-container">
+        ${rowsHtml}
+      </div>
+    </div>
+  `;
+}
+
+export function renderSiteControls(status = {}, announcement = {}) {
+  const isReadOnly = status?.readOnly === true;
+  const isAnnActive = announcement?.active === true;
+  const annText = escapeAttr(announcement?.text || '');
+
+  return `
+    <div class="admin-control-section">
+      <h4>Read-Only Emergency Mode</h4>
+      <p class="section-head-subtitle">When active, normal student writes (memories, superlatives, votes) are halted site-wide.</p>
+      <div class="admin-toggle-row">
+        <label class="switch-label">
+          <input type="checkbox" id="admin-readonly-toggle" ${isReadOnly ? 'checked' : ''}>
+          <span>Enable Read-Only Site Mode</span>
+        </label>
+      </div>
+    </div>
+
+    <div class="admin-control-section">
+      <h4>Pinned Announcement Banner</h4>
+      <p class="section-head-subtitle">Display a pinned alert banner at the top of every screen for all visitors and students.</p>
+      <form id="admin-announcement-form">
+        <div class="form-group">
+          <label for="admin-ann-text">Announcement Message (max 200 chars)</label>
+          <input type="text" id="admin-ann-text" value="${annText}" maxlength="200" placeholder="e.g. Midterm examinations start Monday. Best of luck APSACians!">
+        </div>
+        <div class="admin-toggle-row">
+          <label class="checkbox-label">
+            <input type="checkbox" id="admin-ann-active" ${isAnnActive ? 'checked' : ''}>
+            <span>Show banner live on site</span>
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary" id="admin-ann-save-btn">Update Announcement</button>
+      </form>
+    </div>
+  `;
+}
+
+export function renderAuditLog(logs = []) {
+  if (logs.length === 0) {
+    return `<div class="admin-empty-notice">No administrative activity recorded yet.</div>`;
+  }
+
+  const rows = logs.map(l => {
+    const safeAction = escapeHtml(l.action || 'ACTION');
+    const safeAdmin = escapeHtml(l.adminName || 'Admin');
+    const safeDetail = escapeHtml(l.detail || '');
+    const safeTarget = escapeHtml(l.targetId || '');
+    const dateStr = l.createdAt?.toDate ? l.createdAt.toDate().toLocaleString() : 'Just now';
+
+    return `
+      <div class="admin-log-row">
+        <div class="admin-log-time mono">${escapeHtml(dateStr)}</div>
+        <div class="admin-log-actor"><strong>${safeAdmin}</strong></div>
+        <div class="admin-log-action"><span class="tag mono">${safeAction}</span></div>
+        <div class="admin-log-detail">${safeDetail} ${safeTarget ? `(<span class="mono">${safeTarget}</span>)` : ''}</div>
+      </div>
+    `;
+  }).join('');
+
+  return `
+    <div class="admin-log-container">
+      <div class="admin-log-list">${rows}</div>
+    </div>
+  `;
+}
+

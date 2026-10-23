@@ -36,9 +36,9 @@ service cloud.firestore {
              isAdmin();
     }
 
-    // --- 1. siteConfig (Public read by signed-in, admin write) ---
+    // --- 1. siteConfig (Public read, admin write) ---
     match /siteConfig/{docId} {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
@@ -297,6 +297,11 @@ service cloud.firestore {
         request.resource.data.createdAt == request.time;
       allow update: if isAdmin();
       allow delete: if resource.data.ownerUid == request.auth.uid || isAdmin();
+    }
+
+    // --- 13. adminLog/{id} (Admin action audit trail) ---
+    match /adminLog/{id} {
+      allow read, write: if isAdmin();
     }
 
     // Default deny
