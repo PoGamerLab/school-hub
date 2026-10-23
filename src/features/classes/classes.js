@@ -9,12 +9,14 @@ import { fetchActiveClasses } from '../gate/gate.db.js';
 import { renderClassesHubCards, renderClassDetailBanner, renderClassStudentsGrid } from './classes.render.js';
 import { loadAndRenderClassChat, cleanupClassChat } from './classes.chat.js';
 import { loadAndRenderAnnouncements, cleanupAnnouncements } from './classes.announcements.js';
+import { loadAllStudentsDirectory, setDirectoryFilter, setDirectorySearch } from './classes.directory.js';
 import { initFirebase } from '../../config/firebase.js';
 
 let selectedClass = null;
 let currentFilter = 'All';
 let currentSearch = '';
 let activeClassStudents = [];
+let currentHubArea = 'classrooms';
 
 export async function syncClasses() {
   try {
@@ -39,6 +41,29 @@ export function initClasses() {
   const countTag = document.getElementById('class-students-count-tag');
   const adminAddBtn = document.getElementById('classes-admin-add-btn');
 
+  // Hub Switcher Tabs (Classrooms vs All Students Directory)
+  const tabClassroomsBtn = document.getElementById('classes-tab-classrooms-btn');
+  const tabStudentsBtn = document.getElementById('classes-tab-students-btn');
+  const areaClassrooms = document.getElementById('classes-area-classrooms');
+  const areaStudents = document.getElementById('classes-area-students');
+  const dirGrid = document.getElementById('hub-students-grid');
+  const dirSearchInput = document.getElementById('hub-students-search-input');
+  const dirChips = document.getElementById('hub-students-chips');
+
+  function switchHubArea(area) {
+    currentHubArea = area;
+    tabClassroomsBtn?.classList.toggle('active', area === 'classrooms');
+    tabStudentsBtn?.classList.toggle('active', area === 'students');
+    areaClassrooms?.classList.toggle('hidden', area !== 'classrooms');
+    areaStudents?.classList.toggle('hidden', area !== 'students');
+
+    if (area === 'students') {
+      loadAllStudentsDirectory();
+    } else {
+      renderHub();
+    }
+  }
+
   // --- 1. Classes Hub View ---
   async function renderHub() {
     if (!cardsGrid) return;
@@ -46,7 +71,6 @@ export function initClasses() {
     const user = authService.getCurrentUser();
     const myClassId = user?.classId || '';
 
-    // Calculate student counts per class
     const counts = {};
     try {
       const fb = await initFirebase();
@@ -98,13 +122,11 @@ export function initClasses() {
     const user = authService.getCurrentUser();
     const isMember = user && user.classId === cls.id;
 
-    // Render Banner
     const bannerRoot = document.getElementById('class-detail-banner-root');
     if (bannerRoot) {
       bannerRoot.innerHTML = renderClassDetailBanner(cls, isMember);
     }
 
-    // Default to Students sub-tab
     switchSubTab('students');
     await loadClassStudents(cls.id);
   }
@@ -159,68 +181,69 @@ export function initClasses() {
     selectedClass = null;
     if (detailView) detailView.classList.add('hidden');
     if (hubView) hubView.classList.remove('hidden');
-    renderHub();
+    switchHubArea(currentHubArea);
   }
 
   // --- 3. Events ---
+  tabClassroomsBtn?.addEventListener('click', () => switchHubArea('classrooms'));
+  tabStudentsBtn?.addEventListener('click', () => switchHubArea('students'));
+
   if (cardsGrid) {
     cardsGrid.addEventListener('click', (e) => {
       const card = e.target.closest('.class-card');
-      if (card && card.dataset.classId) {
-        openClassDetail(card.dataset.classId);
-      }
+      if (card && card.dataset.classId) openClassDetail(card.dataset.classId);
     });
   }
 
-  if (studentsGrid) {
-    studentsGrid.addEventListener('click', (e) => {
-      const card = e.target.closest('.card');
-      if (card && card.dataset.id) {
-        router.navigate('profile', { id: card.dataset.id });
-      }
-    });
-  }
+  const handleCardClick = (e) => {
+    const card = e.target.closest('.card');
+    if (card && card.dataset.id) router.navigate('profile', { id: card.dataset.id });
+  };
+  studentsGrid?.addEventListener('click', handleCardClick);
+  dirGrid?.addEventListener('click', handleCardClick);
 
-  if (backBtn) {
-    backBtn.addEventListener('click', closeClassDetail);
-  }
+  backBtn?.addEventListener('click', closeClassDetail);
 
-  if (subtabsBar) {
-    subtabsBar.addEventListener('click', (e) => {
-      const btn = e.target.closest('.class-subtab');
-      if (btn && btn.dataset.tab) {
-        switchSubTab(btn.dataset.tab);
-      }
-    });
-  }
+  subtabsBar?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.class-subtab');
+    if (btn && btn.dataset.tab) switchSubTab(btn.dataset.tab);
+  });
 
-  if (filterChips) {
-    filterChips.addEventListener('click', (e) => {
-      const chip = e.target.closest('.chip');
-      if (!chip) return;
-      filterChips.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
-      chip.classList.add('active');
-      currentFilter = chip.dataset.filter || 'All';
+  filterChips?.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    filterChips.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    currentFilter = chip.dataset.filter || 'All';
+    renderHub();
+  });
+
+  dirChips?.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip');
+    if (!chip) return;
+    dirChips.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    chip.classList.add('active');
+    setDirectoryFilter(chip.dataset.filter || 'All');
+  });
+
+  let searchTimer = null;
+  searchInput?.addEventListener('input', (e) => {
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      currentSearch = e.target.value.trim();
       renderHub();
-    });
-  }
+    }, 150);
+  });
 
-  if (searchInput) {
-    let t = null;
-    searchInput.addEventListener('input', (e) => {
-      clearTimeout(t);
-      t = setTimeout(() => {
-        currentSearch = e.target.value.trim();
-        renderHub();
-      }, 150);
-    });
-  }
+  let dirTimer = null;
+  dirSearchInput?.addEventListener('input', (e) => {
+    clearTimeout(dirTimer);
+    dirTimer = setTimeout(() => {
+      setDirectorySearch(e.target.value.trim());
+    }, 150);
+  });
 
-  if (adminAddBtn) {
-    adminAddBtn.addEventListener('click', () => {
-      router.navigate('admin');
-    });
-  }
+  adminAddBtn?.addEventListener('click', () => router.navigate('admin'));
 
   // Lifecycle
   router.registerScreenHook('class', {
@@ -244,7 +267,7 @@ export function initClasses() {
 
   store.subscribe('activeClasses', () => {
     if (router.activeScreenId === 'class' && !selectedClass) {
-      renderHub();
+      if (currentHubArea === 'classrooms') renderHub();
     }
   });
 }

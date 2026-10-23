@@ -152,6 +152,11 @@ class Router {
       return this._intendedDestination || 'home';
     }
 
+    // Students tab has been consolidated into the Classes hub
+    if (screenId === 'students') {
+      return 'class';
+    }
+
     return screenId;
   }
 

@@ -1,4 +1,36 @@
 /* Classes Hub & Screen Styles */
+.classes-hub-tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 8px;
+}
+
+.classes-hub-tab {
+  background: var(--paper-dim);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-family: 'Work Sans', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--pine-deep);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.classes-hub-tab:hover {
+  background: #fff;
+  border-color: var(--pine);
+}
+
+.classes-hub-tab.active {
+  background: var(--pine);
+  color: #fff;
+  border-color: var(--pine);
+}
+
 .classes-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));

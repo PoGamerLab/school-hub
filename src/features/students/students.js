@@ -178,7 +178,7 @@ export function initStudents() {
 
   if (backToStudentsBtn) {
     backToStudentsBtn.addEventListener('click', () => {
-      router.navigate('students');
+      router.navigate('class');
     });
   }
 

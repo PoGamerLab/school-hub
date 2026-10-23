@@ -54,9 +54,9 @@
     <div class="navlinks">
       <button class="active" data-screen="home">Home</button>
       <button data-screen="class">Classes</button>
-      <button data-screen="students">Students</button>
       <button data-screen="school">About School</button>
       <button data-screen="admin" class="admin-nav-item hidden-admin">Admin</button>
+      <button data-screen="students" class="hidden">Students</button>
       <button data-screen="memories" class="hidden">Memory Wall</button>
       <button data-screen="superlatives" class="hidden">Superlatives</button>
     </div>
@@ -77,9 +77,9 @@
     <div class="mobile-nav-links">
       <button class="active" data-screen="home">🏠 Home</button>
       <button data-screen="class">🏫 Classes</button>
-      <button data-screen="students">👥 Students Directory</button>
       <button data-screen="school">🏛️ About School</button>
       <button data-screen="admin" class="admin-nav-item hidden-admin">🛡️ Admin Console</button>
+      <button data-screen="students" class="hidden">👥 Students Directory</button>
       <button data-screen="memories" class="hidden">💭 Memory Wall</button>
       <button data-screen="superlatives" class="hidden">🏆 Superlatives</button>
     </div>
@@ -117,26 +117,59 @@
           </div>
         </div>
 
-        <div class="toolbar">
-          <div class="search">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9aa39a" stroke-width="2">
-              <circle cx="11" cy="11" r="7"/>
-              <path d="M21 21l-4.3-4.3"/>
-            </svg>
-            <input type="text" id="classes-search-input" placeholder="Search by class name, grade, or teacher…">
-          </div>
-          <div class="chips" id="classes-filter-chips">
-            <span class="chip active" data-filter="All">All</span>
-            <span class="chip" data-filter="Grade 10">Grade 10</span>
-            <span class="chip" data-filter="Grade 9">Grade 9</span>
-            <span class="chip" data-filter="Grade 11">Grade 11 (FSc)</span>
-            <span class="chip" data-filter="Grade 12">Grade 12 (FSc)</span>
-            <span class="chip" data-filter="Middle">Middle Wing</span>
-          </div>
+        <!-- Top Switcher: Classrooms vs All Students Directory -->
+        <div class="classes-hub-tabs">
+          <button class="classes-hub-tab active" id="classes-tab-classrooms-btn">🏫 Classrooms</button>
+          <button class="classes-hub-tab" id="classes-tab-students-btn">👥 All Students Directory</button>
         </div>
 
-        <!-- Class Cards Grid -->
-        <div class="classes-grid" id="classes-cards-grid"></div>
+        <!-- Area 1: Classrooms Grid -->
+        <div id="classes-area-classrooms">
+          <div class="toolbar">
+            <div class="search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9aa39a" stroke-width="2">
+                <circle cx="11" cy="11" r="7"/>
+              </svg>
+              <input type="text" id="classes-search-input" placeholder="Search by class name, grade, or teacher…">
+            </div>
+            <div class="chips" id="classes-filter-chips">
+              <span class="chip active" data-filter="All">All</span>
+              <span class="chip" data-filter="Grade 10">Grade 10</span>
+              <span class="chip" data-filter="Grade 9">Grade 9</span>
+              <span class="chip" data-filter="Grade 11">Grade 11 (FSc)</span>
+              <span class="chip" data-filter="Grade 12">Grade 12 (FSc)</span>
+              <span class="chip" data-filter="Middle">Middle Wing</span>
+            </div>
+          </div>
+
+          <!-- Class Cards Grid -->
+          <div class="classes-grid" id="classes-cards-grid"></div>
+        </div>
+
+        <!-- Area 2: All Students Directory -->
+        <div id="classes-area-students" class="hidden">
+          <div class="toolbar">
+            <div class="search">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9aa39a" stroke-width="2">
+                <circle cx="11" cy="11" r="7"/>
+              </svg>
+              <input type="text" id="hub-students-search-input" placeholder="Search by student name, house, subject, or hobby…">
+            </div>
+            <div class="chips" id="hub-students-chips">
+              <span class="chip active" data-filter="All">All</span>
+              <span class="chip" data-filter="Unity">🔴 Unity</span>
+              <span class="chip" data-filter="Faith">🟡 Faith</span>
+              <span class="chip" data-filter="Discipline">🔵 Discipline</span>
+              <span class="chip" data-filter="Tolerance">🟢 Tolerance</span>
+              <span class="chip" data-filter="Sports">Sports</span>
+              <span class="chip" data-filter="Academics">Academics</span>
+              <span class="chip" data-filter="Coding">Coding</span>
+              <span class="chip" data-filter="Art">Art</span>
+            </div>
+          </div>
+
+          <div class="grid" id="hub-students-grid"></div>
+        </div>
       </section>
     </div>
 
@@ -224,7 +257,7 @@
       <div class="section-head section-head-center">
         <div class="profile-nav-group">
           <button class="btn btn-outline btn-sm" id="back-to-students-btn">
-            &larr; Back to Students
+            &larr; Back to Classes
           </button>
           <h2>Student Profile</h2>
         </div>
@@ -768,10 +801,6 @@
     <button class="bottom-tab-btn" data-screen="class">
       <span class="bottom-tab-icon">🏫</span>
       <span class="bottom-tab-label">Classes</span>
-    </button>
-    <button class="bottom-tab-btn" data-screen="students">
-      <span class="bottom-tab-icon">👥</span>
-      <span class="bottom-tab-label">Students</span>
     </button>
     <button class="bottom-tab-btn" data-screen="school">
       <span class="bottom-tab-icon">🏛️</span>
