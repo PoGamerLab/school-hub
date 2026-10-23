@@ -16,13 +16,11 @@ export function initAdmin() {
   const reportsContainer = document.getElementById('admin-reports-list');
   const gateEditorContainer = document.getElementById('admin-gate-editor-root');
   const classManagerContainer = document.getElementById('admin-class-manager-root');
-  const adminNavBtn = document.querySelector('[data-screen="admin"]');
-
   function updateAdminVisibility() {
     const isAdmin = store.get('isAdmin');
-    if (adminNavBtn) {
-      adminNavBtn.classList.toggle('hidden-admin', !isAdmin);
-    }
+    document.querySelectorAll('[data-screen="admin"]').forEach(el => {
+      el.classList.toggle('hidden-admin', !isAdmin);
+    });
   }
 
   async function renderReports() {

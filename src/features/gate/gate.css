@@ -67,3 +67,7 @@
   font-weight: 600;
   color: var(--red);
 }
+
+.gate-admin-jump {
+  margin-top: 10px;
+}

@@ -66,15 +66,17 @@ export function initNavbar() {
   });
 
   function updateNavVisibility(user) {
-    const isActiveUser = !!(user && user.status === 'active');
+    const isAdmin = store.get('isAdmin');
+    // Non-active registered users (in gate, onboarding, or revoked) have restricted nav
+    const isRestricted = !!(user && !isAdmin && (user.status === 'needs_gate' || user.status === 'needs_profile' || user.status === 'revoked' || user.banned));
     const navlinks = document.querySelector('.navlinks');
     const navToggle = document.getElementById('nav-toggle-btn');
 
-    // Hide nav tabs and hamburger only for non-active users.
-    // The .nav-auth area (Sign In / avatar) is always visible.
-    if (navlinks) navlinks.classList.toggle('hidden-auth', !isActiveUser);
-    if (navToggle) navToggle.classList.toggle('hidden-auth', !isActiveUser);
-    if (!isActiveUser && mobileDrawer) mobileDrawer.classList.remove('open');
+    // Only hide tabs during the student gate/onboarding flow
+    // Signed-out visitors, active members, and admins always see navigation
+    if (navlinks) navlinks.classList.toggle('hidden-auth', isRestricted);
+    if (navToggle) navToggle.classList.toggle('hidden-auth', isRestricted);
+    if (isRestricted && mobileDrawer) mobileDrawer.classList.remove('open');
   }
 
   function renderAuth(user) {
@@ -151,6 +153,10 @@ export function initNavbar() {
 
   store.subscribe('user', (user) => {
     renderAuth(user);
+  });
+
+  store.subscribe('isAdmin', () => {
+    updateNavVisibility(authService.getCurrentUser());
   });
 
   renderAuth(store.get('user'));

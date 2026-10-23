@@ -29,7 +29,7 @@ export function renderGateLocked() {
   `;
 }
 
-export function renderGateForm(questions, classes, attemptsRemaining, cooldownSeconds = 0) {
+export function renderGateForm(questions, classes, attemptsRemaining, cooldownSeconds = 0, isAdmin = false) {
   const hasClasses = Array.isArray(classes) && classes.length > 0;
   const optionsHtml = hasClasses
     ? classes.map(c => `<option value="${escapeHtml(c.id)}">${escapeHtml(c.name || c.id)}</option>`).join('')
@@ -44,6 +44,15 @@ export function renderGateForm(questions, classes, attemptsRemaining, cooldownSe
       <span class="gate-badge">Classmate Gate</span>
       <h2 class="gate-title">Verify Your Membership</h2>
       <p class="gate-desc">To protect our class memories and student directory, please verify that you are a student by answering these three questions.</p>
+
+      ${isAdmin ? `
+        <div class="gate-notice warning">
+          <p><strong>Administrator Notice:</strong> You are recognized as an administrator. You do not need to take the student gate.</p>
+          <div class="gate-admin-jump">
+            <button type="button" class="btn btn-sm btn-primary" id="gate-jump-admin-btn">Go to Admin Dashboard</button>
+          </div>
+        </div>
+      ` : ''}
 
       ${!hasClasses ? `
         <div class="gate-notice warning">
@@ -67,21 +76,21 @@ export function renderGateForm(questions, classes, attemptsRemaining, cooldownSe
 
         <div class="form-group">
           <label for="gate-q1">${escapeHtml(questions.q1Text || 'Question 1')}</label>
-          <input type="text" id="gate-q1" placeholder="Type your answer..." required maxlength="60" ${isCooldown || !hasClasses ? 'disabled' : ''}>
+          <input type="text" id="gate-q1" placeholder="Type your answer..." required maxlength="60" ${isCooldown ? 'disabled' : ''}>
         </div>
 
         <div class="form-group">
           <label for="gate-q2">${escapeHtml(questions.q2Text || 'Question 2')}</label>
-          <input type="text" id="gate-q2" placeholder="Type your answer..." required maxlength="60" ${isCooldown || !hasClasses ? 'disabled' : ''}>
+          <input type="text" id="gate-q2" placeholder="Type your answer..." required maxlength="60" ${isCooldown ? 'disabled' : ''}>
         </div>
 
         <div class="form-group">
           <label for="gate-q3">${escapeHtml(questions.q3Text || 'Question 3')}</label>
-          <input type="text" id="gate-q3" placeholder="Type your answer..." required maxlength="60" ${isCooldown || !hasClasses ? 'disabled' : ''}>
+          <input type="text" id="gate-q3" placeholder="Type your answer..." required maxlength="60" ${isCooldown ? 'disabled' : ''}>
         </div>
 
         <button type="submit" class="btn btn-primary btn-full" id="gate-submit-btn" ${isCooldown || !hasClasses ? 'disabled' : ''}>
-          Submit Verification Answers
+          ${!hasClasses ? 'No Classes Available to Join' : 'Submit Verification Answers'}
         </button>
 
         <div class="gate-attempts-pill">

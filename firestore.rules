@@ -12,7 +12,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        request.auth.uid in ['09GmmAuEGmdSHL6X9Z9BgGGenfW2', 'Ox86p08MIYcdvMWCMTFNYXFJeXC2']
+      );
     }
 
     function getUser() {
@@ -39,10 +42,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- 2. admins/{uid} (Console only writes) ---
+    // --- 2. admins/{uid} (Console or recognized admin writes) ---
     match /admins/{uid} {
       allow read: if isSignedIn() && (request.auth.uid == uid || isAdmin());
-      allow write: if false;
+      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == uid && request.auth.uid in ['09GmmAuEGmdSHL6X9Z9BgGGenfW2', 'Ox86p08MIYcdvMWCMTFNYXFJeXC2']);
     }
 
     // --- 3. users/{uid} (Owner or admin read, state machine updates) ---

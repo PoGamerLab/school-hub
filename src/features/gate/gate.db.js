@@ -6,7 +6,14 @@ import { getDocument, setDocument, updateDocument } from '../../core/db/firestor
 import { initFirebase } from '../../config/firebase.js';
 
 export async function fetchGateQuestions() {
-  return await getDocument('gateConfig', 'questions');
+  const doc = await getDocument('gateConfig', 'questions');
+  if (doc && doc.q1Text) return doc;
+  return {
+    q1Text: 'What is our school motto?',
+    q2Text: 'What color is our school crest border?',
+    q3Text: 'Who is our class teacher?',
+    version: 1
+  };
 }
 
 export async function fetchActiveClasses() {

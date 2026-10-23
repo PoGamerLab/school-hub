@@ -71,11 +71,19 @@ export function initGate() {
       }
     }
 
-    container.innerHTML = renderGateForm(questions, classes, attemptsRemaining, cooldownSeconds);
+    const isAdmin = !!store.get('isAdmin');
+    container.innerHTML = renderGateForm(questions, classes, attemptsRemaining, cooldownSeconds, isAdmin);
     attachEvents(user.uid, attemptsUsed, cooldownSeconds);
   }
 
   function attachEvents(uid, previousAttempts, cooldownSeconds) {
+    const adminJumpBtn = document.getElementById('gate-jump-admin-btn');
+    if (adminJumpBtn) {
+      adminJumpBtn.addEventListener('click', () => {
+        router.navigate('admin');
+      });
+    }
+
     if (cooldownSeconds > 0) {
       let remaining = cooldownSeconds;
       countdownInterval = setInterval(() => {
