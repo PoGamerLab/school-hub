@@ -23,6 +23,8 @@ import { initTeachers } from './features/teachers/teachers.js';
 import { initGallery } from './features/gallery/gallery.js';
 import { initSuperlatives } from './features/superlatives/superlatives.js';
 import { initMemories } from './features/memories/memories.js';
+import { initGate } from './features/gate/gate.js';
+import { initOnboarding } from './features/onboarding/onboarding.js';
 
 let adminInitialized = false;
 async function maybeInitAdmin() {
@@ -51,6 +53,8 @@ async function boot() {
   initGallery();
   initSuperlatives();
   initMemories();
+  initGate();
+  initOnboarding();
 
   router.init();
 

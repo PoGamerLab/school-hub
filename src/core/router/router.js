@@ -1,9 +1,6 @@
 /**
- * Hash-based router with per-screen access control and screen lifecycle hooks.
- *
- * P0-2: Guard runs before any screen renders.
- * P0-6: Screen hooks (onEnter / onLeave) start listeners only when a screen
- *       is visible and stop them when leaving. Home subscribes to nothing.
+ * Hash-based router with per-screen access control, lifecycle hooks,
+ * and user status routing (Phase 1, section 4.6).
  */
 
 import { store } from '../store/store.js';
@@ -11,6 +8,9 @@ import { showToast } from '../../components/toast/toast.js';
 
 const SCREEN_ACCESS = {
   home:         'public',
+  gate:         'public',
+  onboarding:   'public',
+  revoked:      'public',
   class:        'member',
   students:     'member',
   profile:      'member',
@@ -27,6 +27,7 @@ class Router {
     this.initialized = false;
     this.authReady = false;
     this._pendingHash = null;
+    this._intendedDestination = null;
     this.activeScreenId = null;
     this.screenHooks = new Map();
   }
@@ -51,7 +52,10 @@ class Router {
 
     window.addEventListener('hashchange', () => this.handleHashChange());
 
-    // Show loading state until auth resolves
+    store.subscribe('user', () => {
+      if (this.authReady) this.handleHashChange();
+    });
+
     this._showLoading();
     this.handleHashChange();
   }
@@ -63,6 +67,12 @@ class Router {
     const target = this._pendingHash || window.location.hash.replace('#', '') || 'home';
     this._pendingHash = null;
     this.switchTo(target, false);
+  }
+
+  onActivationComplete() {
+    const dest = this._intendedDestination || 'home';
+    this._intendedDestination = null;
+    this.navigate(dest);
   }
 
   handleHashChange() {
@@ -77,6 +87,7 @@ class Router {
     }
 
     if (!this.authReady) {
+      this._intendedDestination = screenId || 'home';
       this._pendingHash = screenId || 'home';
       return;
     }
@@ -100,7 +111,35 @@ class Router {
     const user = store.get('user');
     if (!user) return 'public';
     if (store.get('isAdmin')) return 'admin';
-    return 'member';
+    if (user.status === 'active') return 'member';
+    return 'public';
+  }
+
+  _resolveStatusRoute(screenId) {
+    const user = store.get('user');
+    if (!user) {
+      // Signed out: only home landing page
+      return 'home';
+    }
+
+    if (user.banned || user.status === 'revoked') {
+      return 'revoked';
+    }
+
+    if (user.status === 'needs_gate') {
+      return 'gate';
+    }
+
+    if (user.status === 'needs_profile') {
+      return 'onboarding';
+    }
+
+    // Active member: if they landed on gate or onboarding, send to intended or home
+    if (screenId === 'gate' || screenId === 'onboarding' || screenId === 'revoked') {
+      return this._intendedDestination || 'home';
+    }
+
+    return screenId;
   }
 
   _accessAllowed(screenId) {
@@ -118,13 +157,22 @@ class Router {
       return;
     }
 
+    const resolved = this._resolveStatusRoute(screenId);
+    if (resolved !== screenId) {
+      if (resolved === 'gate' || resolved === 'onboarding' || resolved === 'revoked') {
+        this._intendedDestination = screenId;
+      }
+      history.replaceState(null, '', `#${resolved}`);
+      screenId = resolved;
+    }
+
     if (!this._accessAllowed(screenId)) {
       const user = store.get('user');
       const required = SCREEN_ACCESS[screenId] || 'member';
       if (required === 'admin') {
         showToast('Admin access required.', 'error');
       } else if (required === 'member' && !user) {
-        showToast('Please sign in to view this page.', 'info');
+        showToast('Please sign in with Google to view this page.', 'info');
       }
       history.replaceState(null, '', '#home');
       screenId = 'home';
@@ -150,7 +198,6 @@ class Router {
       btn.classList.toggle('active', btn.dataset.screen === screenId);
     });
 
-    // P0-6: Trigger lifecycle hooks (leave previous screen, enter new screen)
     const prevScreenId = this.activeScreenId;
     if (prevScreenId && prevScreenId !== screenId) {
       const prevHooks = this.screenHooks.get(prevScreenId);

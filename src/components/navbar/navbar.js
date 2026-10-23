@@ -43,8 +43,20 @@ export function initNavbar() {
     });
   }
 
+  function updateNavVisibility(user) {
+    const isActiveUser = !!(user && user.status === 'active');
+    const navlinks = document.querySelector('.navlinks');
+    const navToggle = document.getElementById('nav-toggle-btn');
+
+    if (navlinks) navlinks.style.display = isActiveUser ? '' : 'none';
+    if (navToggle) navToggle.style.display = isActiveUser ? '' : 'none';
+    if (!isActiveUser && mobileDrawer) mobileDrawer.classList.remove('open');
+  }
+
   function renderAuth(user) {
     if (!container) return;
+    updateNavVisibility(user);
+
     if (user) {
       const avatarHtml = user.photoURL 
         ? `<img src="${escapeHtml(user.photoURL)}" alt="Avatar" class="auth-avatar">`
@@ -81,6 +93,12 @@ export function initNavbar() {
       });
     }
   }
+
+  document.getElementById('revoked-signout-btn')?.addEventListener('click', async () => {
+    await authService.signOut();
+    showToast('Signed out.');
+    window.location.hash = '#home';
+  });
 
   store.subscribe('user', (user) => {
     renderAuth(user);

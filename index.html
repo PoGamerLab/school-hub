@@ -27,6 +27,8 @@
   <link rel="stylesheet" href="src/features/gallery/gallery.css">
   <link rel="stylesheet" href="src/features/superlatives/superlatives.css">
   <link rel="stylesheet" href="src/features/memories/memories.css">
+  <link rel="stylesheet" href="src/features/gate/gate.css">
+  <link rel="stylesheet" href="src/features/onboarding/onboarding.css">
   <link rel="stylesheet" href="src/features/admin/admin.css">
 </head>
 <body>
@@ -274,6 +276,34 @@
       <div class="memory-grid" id="memories-container"></div>
       <div id="memories-load-more-container" class="load-more-container hidden">
         <button class="btn btn-outline btn-sm" id="memories-load-more-btn">Load More Memories</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Screen: Gate Verification (needs_gate status) -->
+  <div class="screen" id="gate">
+    <section class="section">
+      <div id="gate-container-root"></div>
+    </section>
+  </div>
+
+  <!-- Screen: Onboarding Wizard (needs_profile status) -->
+  <div class="screen" id="onboarding">
+    <section class="section">
+      <div id="onboarding-container-root"></div>
+    </section>
+  </div>
+
+  <!-- Screen: Revoked / Banned Account Notice -->
+  <div class="screen" id="revoked">
+    <section class="section">
+      <div class="gate-container">
+        <span class="gate-badge">Account Notice</span>
+        <h2 class="gate-title">Access Suspended</h2>
+        <div class="gate-notice danger">
+          Your account access has been revoked or banned by the administrator.
+        </div>
+        <button class="btn btn-primary btn-full" id="revoked-signout-btn">Sign Out</button>
       </div>
     </section>
   </div>
