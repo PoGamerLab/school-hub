@@ -235,9 +235,78 @@ export async function deleteDocument(collectionName, docId) {
     store.update(collectionName, list =>
       (list || []).filter(item => item.id !== docId)
     );
+    try { localStorage.removeItem(`local_${collectionName}_${docId}`); } catch {}
     return;
   }
   const { doc, deleteDoc } =
     await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   await deleteDoc(doc(database, collectionName, docId));
+}
+
+/** Fetch a single document by ID (Phase 1). */
+export async function getDocument(collectionName, docId) {
+  const database = await ensureDb();
+  if (!database) {
+    try {
+      const raw = localStorage.getItem(`local_${collectionName}_${docId}`);
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  }
+  const { doc, getDoc } =
+    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  const snap = await getDoc(doc(database, collectionName, docId));
+  return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+}
+
+/** Set/overwrite a single document with specific ID (Phase 1). */
+export async function setDocument(collectionName, docId, data, withTimestamp = false, timestampField = 'updatedAt') {
+  const database = await ensureDb();
+  if (!database) {
+    const payload = { id: docId, ...data, ...(withTimestamp ? { [timestampField]: Date.now() } : {}) };
+    try { localStorage.setItem(`local_${collectionName}_${docId}`, JSON.stringify(payload)); } catch {}
+    return payload;
+  }
+  const { doc, setDoc, serverTimestamp } =
+    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  const payload = { ...data, ...(withTimestamp ? { [timestampField]: serverTimestamp() } : {}) };
+  await setDoc(doc(database, collectionName, docId), payload);
+  return payload;
+}
+
+/** Atomic batch write executor (Phase 1, section 4.5). */
+export async function runBatchWrite(operations) {
+  const database = await ensureDb();
+  if (!database) {
+    operations.forEach(op => {
+      if (op.type === 'set') {
+        setDocument(op.collection, op.id, op.data, op.withTimestamp, op.timestampField || 'createdAt');
+      } else if (op.type === 'update') {
+        updateDocument(op.collection, op.id, op.data);
+      } else if (op.type === 'delete') {
+        deleteDocument(op.collection, op.id);
+      }
+    });
+    return;
+  }
+
+  const { doc, writeBatch, serverTimestamp } =
+    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+
+  const batch = writeBatch(database);
+  operations.forEach(op => {
+    const ref = doc(database, op.collection, op.id);
+    if (op.type === 'set') {
+      const tsField = op.timestampField || 'createdAt';
+      const payload = { ...op.data, ...(op.withTimestamp ? { [tsField]: serverTimestamp() } : {}) };
+      batch.set(ref, payload);
+    } else if (op.type === 'update') {
+      batch.update(ref, op.data);
+    } else if (op.type === 'delete') {
+      batch.delete(ref);
+    }
+  });
+
+  await batch.commit();
 }
