@@ -48,6 +48,39 @@ export function initSuperlatives() {
 
   if (container) {
     container.addEventListener('click', async (e) => {
+      const user = authService.getCurrentUser();
+
+      const reportBtn = e.target.closest('[data-action="report-superlative"]');
+      if (reportBtn) {
+        if (!user) {
+          showToast('Please sign in with Google to report a category.', 'error');
+          return;
+        }
+
+        const superlativeId = reportBtn.dataset.id;
+        const reason = prompt('Why are you reporting this superlative category to the administrator?\n(e.g., Inappropriate content, Bullying, Other)');
+        if (!reason || !reason.trim()) {
+          showToast('Report cancelled. A reason is required.', 'info');
+          return;
+        }
+
+        const reportPayload = {
+          reason: reason.trim().slice(0, 200),
+          reporterName: user.displayName || 'Classmate',
+          reportedAt: Date.now()
+        };
+
+        try {
+          await setOwnMapKey('superlatives', superlativeId, 'reports', user.uid, reportPayload);
+          showToast('Thank you. Report sent to administrator for review.');
+          render();
+        } catch (err) {
+          console.error('Report failed:', err);
+          showToast(`Report failed: ${err.message}`, 'error');
+        }
+        return;
+      }
+
       const nomineeRow = e.target.closest('.nominee-row');
       if (!nomineeRow) return;
 

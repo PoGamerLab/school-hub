@@ -33,9 +33,17 @@ export function renderSuperlativeCard(sup, currentUid = null) {
     `;
   }).join('');
 
+  const reports = sup.reports || {};
+  const hasReported = currentUid && reports[currentUid];
+
   return `
     <div class="superlative-card" data-id="${safeId}">
-      <div class="superlative-icon">${safeIcon}</div>
+      <div class="superlative-header">
+        <div class="superlative-icon">${safeIcon}</div>
+        <button class="btn-flag ${hasReported ? 'user-reported' : ''}" data-action="report-superlative" data-id="${safeId}" title="${hasReported ? 'Flagged for review' : 'Report category'}">
+          ${hasReported ? '🚩 Flagged' : '🚩'}
+        </button>
+      </div>
       <div class="superlative-title">${safeTitle}</div>
       <div class="nominees-list">
         ${nomineesHtml}

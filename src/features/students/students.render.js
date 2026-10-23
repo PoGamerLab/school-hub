@@ -3,7 +3,6 @@ import { escapeHtml, escapeAttr } from '../../core/utils/escapeHtml.js';
 export function renderStudentCard(student) {
   const safeId = escapeAttr(student.id || student.uid);
   const safeName = escapeHtml(student.name);
-  const safeRoll = escapeHtml(student.roll);
   const safeInitials = escapeHtml(student.initials || 'ST');
   const gradientClass = `gradient-${typeof student.gradientIndex === 'number' ? student.gradientIndex : 0}`;
   const house = student.house || 'Unity';
@@ -23,7 +22,7 @@ export function renderStudentCard(student) {
         <div class="cname">${safeName}</div>
         <div class="ctag">${groupText} &middot; <span class="house-badge ${houseClass}">${houseIcon} ${escapeHtml(house)}</span></div>
         <div class="ribbon">
-          <span class="ribbon-tag mono">ROLL ${safeRoll}</span>
+          <span class="ribbon-tag mono">${escapeHtml(house.toUpperCase())}</span>
         </div>
       </div>
     </div>
@@ -34,14 +33,17 @@ export function renderProfileView(student, currentUid = null) {
   const profileContainer = document.querySelector('#profile .profile');
   const profileTag = document.getElementById('profile-roll-tag');
 
-  if (!student) {
-    if (profileTag) profileTag.textContent = 'NO PROFILES';
+  if (!student || student.isUncreated) {
+    if (profileTag) profileTag.textContent = 'NO PROFILE';
     if (profileContainer) {
       profileContainer.innerHTML = `
         <div class="empty-state full-width-empty">
           <div class="empty-state-icon">👤</div>
-          <div class="empty-state-title">No Student Profile Selected</div>
-          <div class="empty-state-desc">Classmate profiles will appear here once registered.</div>
+          <div class="empty-state-title">You Haven't Created Your Profile Yet</div>
+          <div class="empty-state-desc">Create your profile now to share your details, house, and interests with the class.</div>
+          <div class="profile-create-action">
+            <button class="btn btn-primary" id="create-my-profile-btn">+ Create My Profile</button>
+          </div>
         </div>
       `;
     }
@@ -50,7 +52,7 @@ export function renderProfileView(student, currentUid = null) {
 
   const isOwner = currentUid && (student.id === currentUid || student.ownerUid === currentUid);
 
-  if (profileTag) profileTag.textContent = `ROLL ${escapeHtml(student.roll)}`;
+  if (profileTag) profileTag.textContent = student.house ? `${student.house.toUpperCase()} HOUSE` : 'APSACIAN';
 
   const birthdayVal = student.showBirthday && student.birthday 
     ? escapeHtml(student.birthday) 
@@ -88,7 +90,7 @@ export function renderProfileView(student, currentUid = null) {
         <div class="prole">
           <span class="house-badge ${houseClass}">${houseIcon} ${escapeHtml(house)} House</span> &middot;
           <strong>CLASS:</strong> ${classText} &middot;
-          <strong>ROLL NO:</strong> ${escapeHtml(student.roll)}
+          <strong>GROUP:</strong> ${escapeHtml(student.group || 'Science Group')}
         </div>
         <p class="pbio">${escapeHtml(student.bio)}</p>
         <div class="field-grid">

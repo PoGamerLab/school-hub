@@ -354,11 +354,7 @@
         </div>
         <div class="form-row">
           <div class="form-group form-col">
-            <label for="student-roll">Roll Number (Digits only)</label>
-            <input type="text" id="student-roll" placeholder="e.g. 42" required maxlength="10">
-          </div>
-          <div class="form-group form-col">
-            <label for="student-house">APSACS House</label>
+            <label for="student-house">APSACS House *</label>
             <select id="student-house">
               <option value="Unity">🔴 Unity House (Ittehad)</option>
               <option value="Faith">🟡 Faith House (Yaqeen)</option>
@@ -366,10 +362,8 @@
               <option value="Tolerance">🟢 Tolerance House (Rawadari)</option>
             </select>
           </div>
-        </div>
-        <div class="form-row">
           <div class="form-group form-col">
-            <label for="student-group">Academic Group / Discipline</label>
+            <label for="student-group">Academic Group / Discipline *</label>
             <select id="student-group">
               <option value="Pre-Medical">Science — Pre-Medical (Bio, Chem, Phy)</option>
               <option value="Pre-Engineering">Science — Pre-Engineering (Math, Chem, Phy)</option>
@@ -377,54 +371,116 @@
               <option value="Humanities">Humanities / General Science</option>
             </select>
           </div>
+        </div>
+        <div class="form-row">
           <div class="form-group form-col">
-            <label for="student-category">Special Interest / Activity</label>
-            <select id="student-category">
-              <option value="Sports">Sports &amp; Athletics</option>
-              <option value="Debates">Debating &amp; Public Speaking</option>
-              <option value="Coding">Coding &amp; STEM Robotics</option>
-              <option value="Music">Music &amp; Qirat / Naat</option>
-              <option value="Art">Calligraphy &amp; Fine Arts</option>
+            <label for="student-subject">Favourite Subject *</label>
+            <select id="student-subject">
+              <option value="Computer Science">Computer Science</option>
+              <option value="Mathematics">Mathematics</option>
+              <option value="Physics">Physics</option>
+              <option value="Chemistry">Chemistry</option>
+              <option value="Biology">Biology</option>
+              <option value="English Literature">English Literature</option>
+              <option value="Urdu Literature">Urdu Literature</option>
+              <option value="Pakistan Studies">Pakistan Studies</option>
+              <option value="Islamiyat">Islamiyat</option>
+              <option value="General Science">General Science</option>
+              <option value="Art & Design">Art &amp; Design</option>
+              <option value="Physical Education">Physical Education / Sports</option>
+            </select>
+          </div>
+          <div class="form-group form-col">
+            <label for="student-tags">Main Hobby / Passion *</label>
+            <select id="student-tags">
+              <option value="Cricket">Cricket</option>
+              <option value="Football">Football</option>
+              <option value="Coding & STEM">Coding &amp; STEM Robotics</option>
+              <option value="Gaming & Esports">Gaming &amp; Esports</option>
+              <option value="Reading & Literature">Reading &amp; Literature</option>
+              <option value="Calligraphy & Art">Calligraphy &amp; Art</option>
+              <option value="Debating & Public Speaking">Debating &amp; Public Speaking</option>
+              <option value="Table Tennis & Badminton">Table Tennis &amp; Badminton</option>
+              <option value="Chess">Chess</option>
+              <option value="Photography">Photography</option>
+              <option value="Naat & Qirat">Naat &amp; Qirat</option>
             </select>
           </div>
         </div>
         <div class="form-group">
-          <label for="student-tags">Hobbies / Hype Tags</label>
-          <input type="text" id="student-tags" placeholder="e.g. Cricket &middot; Coding &middot; Football" required maxlength="100">
+          <label for="student-category">Special Interest / Activity</label>
+          <select id="student-category">
+            <option value="Sports">Sports &amp; Athletics</option>
+            <option value="Debates">Debating &amp; Public Speaking</option>
+            <option value="Coding">Coding &amp; STEM Robotics</option>
+            <option value="Music">Music &amp; Qirat / Naat</option>
+            <option value="Art">Calligraphy &amp; Fine Arts</option>
+          </select>
         </div>
         <div class="form-group">
-          <label for="student-bio">Short Bio &amp; Future Ambition</label>
-          <textarea id="student-bio" rows="2" placeholder="e.g. Future Software Engineer / Armed Forces Officer / Doctor..." required maxlength="500"></textarea>
+          <label for="student-bio">Short Bio &amp; Future Ambition * (Min 15 chars)</label>
+          <textarea id="student-bio" rows="2" placeholder="e.g. Future Software Engineer / Armed Forces Officer / Doctor..." required minlength="15" maxlength="500"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Birthday <span class="privacy-badge">Optional</span></label>
+          <div class="form-row">
+            <div class="form-group form-col">
+              <select id="student-bday-month">
+                <option value="">Month</option>
+                <option value="January">January</option>
+                <option value="February">February</option>
+                <option value="March">March</option>
+                <option value="April">April</option>
+                <option value="May">May</option>
+                <option value="June">June</option>
+                <option value="July">July</option>
+                <option value="August">August</option>
+                <option value="September">September</option>
+                <option value="October">October</option>
+                <option value="November">November</option>
+                <option value="December">December</option>
+              </select>
+            </div>
+            <div class="form-group form-col">
+              <select id="student-bday-day">
+                <option value="">Day</option>
+                <option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option>
+                <option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option>
+                <option value="11">11</option><option value="12">12</option><option value="13">13</option><option value="14">14</option><option value="15">15</option>
+                <option value="16">16</option><option value="17">17</option><option value="18">18</option><option value="19">19</option><option value="20">20</option>
+                <option value="21">21</option><option value="22">22</option><option value="23">23</option><option value="24">24</option><option value="25">25</option>
+                <option value="26">26</option><option value="27">27</option><option value="28">28</option><option value="29">29</option><option value="30">30</option>
+                <option value="31">31</option>
+              </select>
+            </div>
+          </div>
+          <label class="checkbox-row">
+            <input type="checkbox" id="student-show-birthday" class="checkbox-input"> Show birthday on profile
+          </label>
         </div>
         <div class="form-row">
           <div class="form-group form-col">
-            <label for="student-subject">Favourite Subject</label>
-            <input type="text" id="student-subject" placeholder="e.g. Computer Science, Physics" required maxlength="60">
+            <label for="student-quote">Favourite Quote * (Min 8 chars)</label>
+            <input type="text" id="student-quote" placeholder='"I Shall Rise &amp; Shine"' required minlength="8" maxlength="140">
           </div>
           <div class="form-group form-col">
-            <label for="student-birthday">Birthday <span class="privacy-badge">Optional</span></label>
-            <input type="text" id="student-birthday" placeholder="e.g. 14 March" maxlength="30">
-            <label class="checkbox-row">
-              <input type="checkbox" id="student-show-birthday" class="checkbox-input"> Show birthday on profile
-            </label>
+            <label for="student-fact">Fun Fact * (Min 8 chars)</label>
+            <input type="text" id="student-fact" placeholder="e.g. Can solve Rubik's cube in 30s" required minlength="8" maxlength="120">
           </div>
         </div>
         <div class="form-group">
-          <label for="student-quote">Favourite Quote</label>
-          <input type="text" id="student-quote" placeholder='"I Shall Rise &amp; Shine"' required maxlength="140">
+          <label for="student-contact">Contact Handle <span class="privacy-badge">Optional</span></label>
+          <input type="text" id="student-contact" placeholder="e.g. Instagram @tariq.m" maxlength="60">
+          <label class="checkbox-row">
+            <input type="checkbox" id="student-show-contact" class="checkbox-input"> Show contact publicly
+          </label>
         </div>
-        <div class="form-row">
-          <div class="form-group form-col">
-            <label for="student-fact">Fun Fact</label>
-            <input type="text" id="student-fact" placeholder="e.g. Can solve Rubik's cube in 30s" required maxlength="120">
-          </div>
-          <div class="form-group form-col">
-            <label for="student-contact">Contact Handle <span class="privacy-badge">Optional</span></label>
-            <input type="text" id="student-contact" placeholder="e.g. Instagram @tariq.m" maxlength="60">
-            <label class="checkbox-row">
-              <input type="checkbox" id="student-show-contact" class="checkbox-input"> Show contact publicly
-            </label>
-          </div>
+        <div class="form-group admin-only-field hidden-admin" id="student-admin-dir-row">
+          <label class="checkbox-row">
+            <input type="checkbox" id="student-show-directory" class="checkbox-input" checked>
+            <strong>Show my profile in the student directory</strong>
+          </label>
+          <p class="field-hint">As an administrator, uncheck this to keep your profile private from the student grid.</p>
         </div>
         <button type="submit" class="btn btn-primary btn-full">Save &amp; Update Profile</button>
       </form>

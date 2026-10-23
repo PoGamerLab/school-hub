@@ -26,30 +26,35 @@ export function initAdmin() {
 
   async function renderReports() {
     if (!reportsContainer) return;
-    let flagged = [];
+    let flaggedMemories = [];
+    let flaggedSuperlatives = [];
     try {
       const fb = await initFirebase();
       if (fb && fb.db) {
         const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-        const snap = await getDocs(collection(fb.db, 'memories'));
-        flagged = snap.docs
-          .map(d => ({ id: d.id, ...d.data() }))
+        const [memSnap, supSnap] = await Promise.all([
+          getDocs(collection(fb.db, 'memories')),
+          getDocs(collection(fb.db, 'superlatives'))
+        ]);
+        flaggedMemories = memSnap.docs
+          .map(d => ({ id: d.id, ...d.data(), itemType: 'memories' }))
           .filter(m => Object.keys(m.reports || {}).length > 0);
-      } else {
-        const memories = store.get('memories') || [];
-        flagged = memories.filter(m => Object.keys(m.reports || {}).length > 0);
+        flaggedSuperlatives = supSnap.docs
+          .map(d => ({ id: d.id, quote: d.data().title, author: 'Superlative Category', ...d.data(), itemType: 'superlatives' }))
+          .filter(s => Object.keys(s.reports || {}).length > 0);
       }
-    } catch {
-      const memories = store.get('memories') || [];
-      flagged = memories.filter(m => Object.keys(m.reports || {}).length > 0);
+    } catch (err) {
+      console.warn('Failed to load reports:', err);
     }
 
-    if (flagged.length === 0) {
+    const allFlagged = [...flaggedMemories, ...flaggedSuperlatives];
+
+    if (allFlagged.length === 0) {
       reportsContainer.innerHTML = '<div class="admin-empty-notice">No reported items. Community is happy!</div>';
       return;
     }
 
-    reportsContainer.innerHTML = flagged.map(m => renderReportedMemoryRow(m)).join('');
+    reportsContainer.innerHTML = allFlagged.map(m => renderReportedMemoryRow(m)).join('');
   }
 
   async function loadAndRenderGateEditor() {
@@ -85,19 +90,40 @@ export function initAdmin() {
     const form = document.getElementById('admin-create-class-form');
     if (!form) return;
 
+    const gradeSelect = document.getElementById('admin-select-grade');
+    const secSelect = document.getElementById('admin-select-section');
+    const previewName = document.getElementById('admin-class-preview-name');
+    const previewSlug = document.getElementById('admin-class-preview-slug');
+
+    function updatePreview() {
+      if (!gradeSelect || !secSelect) return { name: '', slug: '', grade: '', section: '' };
+      const gVal = gradeSelect.value;
+      const gOpt = gradeSelect.options[gradeSelect.selectedIndex];
+      const gNum = gOpt?.dataset?.num || gVal.replace(/[^0-9]/g, '');
+      const sVal = secSelect.value;
+      const sOpt = secSelect.options[secSelect.selectedIndex];
+      const sLetter = sOpt?.dataset?.sec || sVal.replace(/[^a-zA-Z]/g, '').toLowerCase();
+
+      const name = `${gVal} — ${sVal}`;
+      const slug = `${gNum}-${sLetter}`.toLowerCase();
+
+      if (previewName) previewName.textContent = name;
+      if (previewSlug) previewSlug.textContent = slug;
+      return { name, slug, grade: gVal, section: sVal };
+    }
+
+    gradeSelect?.addEventListener('change', updatePreview);
+    secSelect?.addEventListener('change', updatePreview);
+    updatePreview();
+
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const user = authService.getCurrentUser();
-      const rawId = document.getElementById('admin-new-class-id').value.trim().toLowerCase();
-      const classId = rawId.replace(/[^a-z0-9_-]/g, '-').slice(0, 30);
-      const name = document.getElementById('admin-new-class-name').value.trim();
-      const grade = document.getElementById('admin-new-class-grade').value.trim();
-      const section = document.getElementById('admin-new-class-section').value.trim();
+      const { name, slug: classId, grade, section } = updatePreview();
       const classTeacher = document.getElementById('admin-new-class-teacher').value.trim();
-      const room = document.getElementById('admin-new-class-room').value.trim();
 
-      if (!classId || !name) {
-        showToast('Class identifier and name are required.', 'error');
+      if (!classId || !classTeacher) {
+        showToast('Please specify the Class Teacher name.', 'error');
         return;
       }
 
@@ -113,7 +139,6 @@ export function initAdmin() {
           grade,
           section,
           classTeacher,
-          room,
           status: 'active',
           createdBy: user?.uid || 'admin',
           supporterUids: user ? [user.uid] : []
@@ -216,11 +241,13 @@ export function initAdmin() {
       const restoreBtn = e.target.closest('[data-action="restore"]');
       if (restoreBtn) {
         const id = restoreBtn.dataset.id;
+        const type = restoreBtn.dataset.type || 'memories';
         try {
-          await updateDocument('memories', id, { reports: {}, adminReviewed: true });
-          showToast('Item restored to public wall.', 'success');
+          await updateDocument(type, id, { reports: {}, adminReviewed: true });
+          showToast('Reports cleared; item remains active.', 'success');
+          await renderReports();
         } catch (err) {
-          showToast(`Restore failed: ${err.message}`, 'error');
+          showToast(`Action failed: ${err.message}`, 'error');
         }
         return;
       }
@@ -228,9 +255,11 @@ export function initAdmin() {
       const deleteBtn = e.target.closest('[data-action="delete"]');
       if (deleteBtn) {
         const id = deleteBtn.dataset.id;
+        const type = deleteBtn.dataset.type || 'memories';
         try {
-          await deleteDocument('memories', id);
+          await deleteDocument(type, id);
           showToast('Flagged item permanently deleted.', 'info');
+          await renderReports();
         } catch (err) {
           showToast(`Delete failed: ${err.message}`, 'error');
         }

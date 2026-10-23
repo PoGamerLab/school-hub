@@ -21,10 +21,9 @@ export function initMemories() {
     const uid = user ? user.uid : null;
     const isAdmin = store.get('isAdmin');
 
-    const visibleMemories = memories.filter(m => {
-      const reportCount = Object.keys(m.reports || {}).length;
-      return isAdmin || m.adminReviewed || reportCount < 3;
-    });
+    // Memories remain visible on the wall so fake reports cannot censor classmates;
+    // reports are sent to the Admin Panel for administrator review.
+    const visibleMemories = memories;
 
     if (visibleMemories.length === 0) {
       container.innerHTML = `
@@ -89,13 +88,21 @@ export function initMemories() {
         }
 
         const memoryId = reportBtn.dataset.id;
-        if (!confirm('Are you sure you want to flag this entry for moderator review?')) {
+        const reason = prompt('Why are you reporting this memory to the administrator?\n(e.g. Inappropriate language, Bullying, False attribution, Spam)');
+        if (!reason || !reason.trim()) {
+          showToast('Report cancelled. A reason is required.', 'info');
           return;
         }
 
+        const reportPayload = {
+          reason: reason.trim().slice(0, 200),
+          reporterName: user.displayName || 'Classmate',
+          reportedAt: Date.now()
+        };
+
         try {
-          await setOwnMapKey('memories', memoryId, 'reports', user.uid, true);
-          showToast('Thank you. Entry flagged for moderator review.');
+          await setOwnMapKey('memories', memoryId, 'reports', user.uid, reportPayload);
+          showToast('Thank you. Report with reason sent to administrator for review.');
           render();
         } catch (err) {
           console.error('Report failed:', err);

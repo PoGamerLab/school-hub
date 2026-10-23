@@ -4,17 +4,33 @@ export function renderReportedMemoryRow(mem) {
   const safeQuote = escapeHtml(mem.quote);
   const safeAuthor = escapeHtml(mem.author);
   const safeId = escapeAttr(mem.id);
-  const reportsCount = Object.keys(mem.reports || {}).length;
+  const safeType = escapeAttr(mem.itemType || 'memories');
+  const typeLabel = safeType === 'superlatives' ? 'Superlative' : 'Memory';
+  const reportsList = Object.entries(mem.reports || {});
+  const reportsCount = reportsList.length;
+
+  const reasonsHtml = reportsList.map(([uid, r]) => {
+    const reasonText = typeof r === 'object' && r && r.reason
+      ? escapeHtml(r.reason)
+      : (r === true ? 'Flagged without specific note' : escapeHtml(String(r)));
+    const reporterName = typeof r === 'object' && r && r.reporterName
+      ? escapeHtml(r.reporterName)
+      : 'Classmate';
+    return `<div class="admin-report-detail"><strong>${reporterName}:</strong> "${reasonText}"</div>`;
+  }).join('');
 
   return `
-    <div class="admin-item-row" data-id="${safeId}">
+    <div class="admin-item-row" data-id="${safeId}" data-type="${safeType}">
       <div>
-        <div class="admin-item-quote">"${safeQuote}"</div>
-        <div class="admin-item-meta">By ${safeAuthor} &middot; Flagged by ${reportsCount} student(s)</div>
+        <div class="admin-item-quote">
+          <span class="tag tag-gold">${typeLabel}</span> "${safeQuote}"
+        </div>
+        <div class="admin-item-meta">By ${safeAuthor} &middot; Reported by ${reportsCount} student(s)</div>
+        <div class="admin-report-reasons">${reasonsHtml}</div>
       </div>
       <div class="admin-actions">
-        <button class="btn-restore" data-action="restore" data-id="${safeId}">Restore</button>
-        <button class="btn-danger" data-action="delete" data-id="${safeId}">Delete</button>
+        <button class="btn-restore" data-action="restore" data-type="${safeType}" data-id="${safeId}">Dismiss Reports</button>
+        <button class="btn-danger" data-action="delete" data-type="${safeType}" data-id="${safeId}">Delete Post</button>
       </div>
     </div>
   `;
@@ -37,40 +53,44 @@ export function renderClassManager(classes = []) {
     <form id="admin-create-class-form" class="admin-class-form">
       <div class="form-row">
         <div class="form-group form-col">
-          <label for="admin-new-class-id">Class Identifier (Slug)</label>
-          <input type="text" id="admin-new-class-id" placeholder="e.g. 10-b" required maxlength="30">
+          <label for="admin-select-grade">Select Grade (APSACS)</label>
+          <select id="admin-select-grade">
+            <option value="Grade 10" data-num="10">Grade 10 (Matric SSC-II)</option>
+            <option value="Grade 9" data-num="9">Grade 9 (Matric SSC-I)</option>
+            <option value="Grade 11" data-num="11">Grade 11 / 1st Year (FSc / ICS HSSC-I)</option>
+            <option value="Grade 12" data-num="12">Grade 12 / 2nd Year (FSc / ICS HSSC-II)</option>
+            <option value="Grade 8" data-num="8">Grade 8 (Middle Wing)</option>
+            <option value="Grade 7" data-num="7">Grade 7 (Middle Wing)</option>
+            <option value="Grade 6" data-num="6">Grade 6 (Middle Wing)</option>
+          </select>
         </div>
         <div class="form-group form-col">
-          <label for="admin-new-class-name">Class Name</label>
-          <input type="text" id="admin-new-class-name" placeholder="e.g. Grade 10 — Section B" required maxlength="80">
+          <label for="admin-select-section">Select Section</label>
+          <select id="admin-select-section">
+            <option value="Section A" data-sec="a">Section A</option>
+            <option value="Section B" data-sec="b" selected>Section B</option>
+            <option value="Section C" data-sec="c">Section C</option>
+            <option value="Section D" data-sec="d">Section D</option>
+            <option value="Section E" data-sec="e">Section E</option>
+          </select>
         </div>
       </div>
-      <div class="form-row">
-        <div class="form-group form-col">
-          <label for="admin-new-class-grade">Grade</label>
-          <input type="text" id="admin-new-class-grade" placeholder="e.g. Grade 10" required maxlength="20">
-        </div>
-        <div class="form-group form-col">
-          <label for="admin-new-class-section">Section</label>
-          <input type="text" id="admin-new-class-section" placeholder="e.g. Section B" required maxlength="10">
-        </div>
+
+      <div class="form-group">
+        <label for="admin-new-class-teacher">Class Teacher Name *</label>
+        <input type="text" id="admin-new-class-teacher" placeholder="e.g. Ma'am Farida Baig or Sir Tariq" required maxlength="80">
       </div>
-      <div class="form-row">
-        <div class="form-group form-col">
-          <label for="admin-new-class-teacher">Class Teacher</label>
-          <input type="text" id="admin-new-class-teacher" placeholder="e.g. Ma'am Farida Baig" maxlength="80">
-        </div>
-        <div class="form-group form-col">
-          <label for="admin-new-class-room">Room</label>
-          <input type="text" id="admin-new-class-room" placeholder="e.g. Room 14" maxlength="50">
-        </div>
+
+      <div class="admin-preview-pill">
+        Class to Create: <strong id="admin-class-preview-name">Grade 10 — Section B</strong> (<span id="admin-class-preview-slug">10-b</span>)
       </div>
+
       <button type="submit" class="btn btn-primary" id="admin-create-class-submit-btn">+ Create Active Class</button>
     </form>
 
     <div class="admin-classes-list">
       <h4>Active Classes (${classes.length})</h4>
-      ${classItems || '<div class="admin-empty-notice">No active classes yet. Create one above to get started!</div>'}
+      ${classItems || '<div class="admin-empty-notice">No active classes yet. Select a grade and section above to create your first class!</div>'}
     </div>
   `;
 }

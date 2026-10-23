@@ -34,8 +34,7 @@ export function renderClassBanner(classInfo, isMember = false, classes = []) {
         <div class="k">Army Public School &amp; College Skardu &middot; Active Class</div>
         <h3>${escapeHtml(classInfo.name || 'Grade 10 — Section B')}</h3>
         <div class="meta">
-          <strong>Teacher:</strong> ${escapeHtml(classInfo.classTeacher || 'Assigned Educator')} &middot;
-          <strong>Room:</strong> ${escapeHtml(classInfo.room || 'Senior Wing')} &middot;
+          <strong>Class Teacher:</strong> ${escapeHtml(classInfo.classTeacher || 'Assigned Educator')} &middot;
           <strong>Affiliation:</strong> FBISE Islamabad
         </div>
       </div>

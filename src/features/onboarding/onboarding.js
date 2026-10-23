@@ -20,29 +20,33 @@ export function initOnboarding() {
   let selectedGradient = 0;
 
   function getFormData() {
+    const bMonth = document.getElementById('w-bday-month')?.value || '';
+    const bDay = document.getElementById('w-bday-day')?.value || '';
+    const birthday = (bMonth && bDay) ? `${bDay} ${bMonth}` : '';
+    const showDirEl = document.getElementById('w-show-directory');
+
     return {
       name: (document.getElementById('w-name')?.value || '').trim(),
-      roll: (document.getElementById('w-roll')?.value || '').trim().replace(/[^0-9]/g, ''),
       house: document.getElementById('w-house')?.value || 'Unity',
       group: document.getElementById('w-group')?.value || 'Pre-Medical',
       category: document.getElementById('w-category')?.value || 'Sports',
       bio: (document.getElementById('w-bio')?.value || '').trim(),
-      favSubject: (document.getElementById('w-subject')?.value || '').trim(),
+      favSubject: document.getElementById('w-subject')?.value || 'Computer Science',
       favQuote: (document.getElementById('w-quote')?.value || '').trim(),
       funFact: (document.getElementById('w-fact')?.value || '').trim(),
-      tags: (document.getElementById('w-tags')?.value || '').trim(),
+      tags: document.getElementById('w-tags')?.value || 'Cricket',
       gradientIndex: selectedGradient,
-      birthday: (document.getElementById('w-birthday')?.value || '').trim(),
+      birthday,
       showBirthday: !!document.getElementById('w-show-birthday')?.checked,
       contact: (document.getElementById('w-contact')?.value || '').trim(),
-      showContact: !!document.getElementById('w-show-contact')?.checked
+      showContact: !!document.getElementById('w-show-contact')?.checked,
+      showInDirectory: showDirEl ? !!showDirEl.checked : true
     };
   }
 
   function setFormData(data) {
     if (!data) return;
     if (document.getElementById('w-name') && data.name) document.getElementById('w-name').value = data.name;
-    if (document.getElementById('w-roll') && data.roll) document.getElementById('w-roll').value = data.roll;
     if (document.getElementById('w-house') && data.house) document.getElementById('w-house').value = data.house;
     if (document.getElementById('w-group') && data.group) document.getElementById('w-group').value = data.group;
     if (document.getElementById('w-category') && data.category) document.getElementById('w-category').value = data.category;
@@ -56,10 +60,19 @@ export function initOnboarding() {
       selectedGradient = parseInt(data.gradientIndex, 10) || 0;
       updateGradientSelection(selectedGradient);
     }
-    if (document.getElementById('w-birthday') && data.birthday) document.getElementById('w-birthday').value = data.birthday;
+    if (data.birthday) {
+      const parts = data.birthday.split(' ');
+      if (parts.length === 2) {
+        if (document.getElementById('w-bday-day')) document.getElementById('w-bday-day').value = parts[0];
+        if (document.getElementById('w-bday-month')) document.getElementById('w-bday-month').value = parts[1];
+      }
+    }
     if (document.getElementById('w-show-birthday')) document.getElementById('w-show-birthday').checked = !!data.showBirthday;
     if (document.getElementById('w-contact') && data.contact) document.getElementById('w-contact').value = data.contact;
     if (document.getElementById('w-show-contact')) document.getElementById('w-show-contact').checked = !!data.showContact;
+    if (document.getElementById('w-show-directory') && data.showInDirectory !== undefined) {
+      document.getElementById('w-show-directory').checked = !!data.showInDirectory;
+    }
   }
 
   function updateGradientSelection(idx) {
@@ -115,17 +128,21 @@ export function initOnboarding() {
   function validateStep(step) {
     const data = getFormData();
     if (step === 0) {
-      if (!data.name || data.name.length > 80) {
-        showToast('Please enter your full name (up to 80 chars).', 'error');
-        return false;
-      }
-      if (!data.roll || !/^[0-9]+$/.test(data.roll) || data.roll.length > 10) {
-        showToast('Please enter a valid roll number (digits only, max 10).', 'error');
+      if (!data.name || data.name.length < 3 || !/^[a-zA-Z\s\.\-]{3,60}$/.test(data.name)) {
+        showToast('Please enter a valid full name (at least 3 letters, no numbers or special symbols).', 'error');
         return false;
       }
     } else if (step === 1) {
-      if (!data.bio || data.bio.length > 500) {
-        showToast('Please enter a short bio (up to 500 characters).', 'error');
+      if (!data.bio || data.bio.length < 15) {
+        showToast('Please write a short bio and future ambition (at least 15 characters).', 'error');
+        return false;
+      }
+      if (!data.favQuote || data.favQuote.length < 8) {
+        showToast('Please enter a favourite quote (at least 8 characters).', 'error');
+        return false;
+      }
+      if (!data.funFact || data.funFact.length < 8) {
+        showToast('Please enter a fun fact (at least 8 characters).', 'error');
         return false;
       }
     }
@@ -133,7 +150,7 @@ export function initOnboarding() {
   }
 
   async function loadAndInit() {
-    container.innerHTML = renderWizardShell();
+    container.innerHTML = renderWizardShell(!!store.get('isAdmin'));
     const user = authService.getCurrentUser();
     if (!user) return;
 
@@ -195,7 +212,6 @@ export function initOnboarding() {
 
     const payload = {
       name: data.name,
-      roll: data.roll,
       house: data.house || 'Unity',
       group: data.group || 'Pre-Medical',
       category: data.category,
@@ -207,7 +223,8 @@ export function initOnboarding() {
       gradientIndex: selectedGradient,
       initials: extractInitials(data.name),
       showBirthday: data.showBirthday,
-      showContact: data.showContact
+      showContact: data.showContact,
+      showInDirectory: data.showInDirectory
     };
 
     if (data.showBirthday && data.birthday) payload.birthday = data.birthday;
@@ -216,8 +233,24 @@ export function initOnboarding() {
     try {
       const activeClass = user.classId || store.get('currentClassId') || '';
       await executeActivationBatch(user.uid, activeClass, payload);
-      authService.setUser({ ...user, status: 'active', classId: activeClass });
-      showToast('Welcome! Your student membership is active.', 'success');
+
+      // Update users/{uid} displayName
+      const updatedUser = {
+        ...user,
+        displayName: data.name,
+        status: 'active',
+        classId: activeClass
+      };
+      authService.setUser(updatedUser);
+
+      try {
+        const { updateDocument } = await import('../../core/db/firestore.js');
+        await updateDocument('users', user.uid, { displayName: data.name });
+      } catch (e) {
+        console.warn('Update user displayName warning:', e);
+      }
+
+      showToast(`Welcome, ${data.name}! Your student membership is active.`, 'success');
       router.onActivationComplete();
     } catch (err) {
       console.error('Activation failed:', err);

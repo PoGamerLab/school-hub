@@ -90,3 +90,30 @@
   color: var(--pine-deep);
   margin-bottom: 12px;
 }
+
+.admin-preview-pill {
+  font-size: 13px;
+  color: var(--pine-deep);
+  background: var(--paper-dim);
+  padding: 8px 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border: 1px solid var(--line);
+}
+
+.admin-report-reasons {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.admin-report-detail {
+  font-size: 12px;
+  background: #FDF2F2;
+  border: 1px solid #FDE8E8;
+  color: #9B1C1C;
+  padding: 4px 8px;
+  border-radius: 4px;
+  display: inline-block;
+}

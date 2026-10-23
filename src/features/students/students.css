@@ -244,6 +244,10 @@
   border-radius: 4px;
 }
 
+.profile-create-action {
+  margin-top: 16px;
+}
+
 .profile-nav-group {
   display: flex;
   align-items: center;

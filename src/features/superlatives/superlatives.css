@@ -33,9 +33,15 @@
   background: linear-gradient(90deg, var(--gold), var(--emerald));
 }
 
+.superlative-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
 .superlative-icon {
   font-size: 32px;
-  margin-bottom: 8px;
   text-align: center;
 }
 

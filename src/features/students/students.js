@@ -23,13 +23,22 @@ export function initStudents() {
     const students = store.get('students') || [];
     const activeCategory = store.get('activeCategory');
     const searchQuery = (store.get('searchQuery') || '').toLowerCase();
+    const user = authService.getCurrentUser();
+    const isAdmin = !!store.get('isAdmin');
 
     return students.filter(student => {
+      // Hide admin or student profile if showInDirectory is false, unless viewing own or is admin
+      const isOwn = user && (student.id === user.uid || student.ownerUid === user.uid);
+      if (student.showInDirectory === false && !isAdmin && !isOwn) {
+        return false;
+      }
+
       const matchesCategory = (activeCategory === 'All' || (student.category && student.category.toLowerCase() === activeCategory.toLowerCase()));
       const matchesSearch = !searchQuery ||
                             (student.name && student.name.toLowerCase().includes(searchQuery)) ||
                             (student.tags && student.tags.toLowerCase().includes(searchQuery)) ||
-                            (student.roll && student.roll.toString().includes(searchQuery));
+                            (student.house && student.house.toLowerCase().includes(searchQuery)) ||
+                            (student.group && student.group.toLowerCase().includes(searchQuery));
       return matchesCategory && matchesSearch;
     });
   }
@@ -54,7 +63,7 @@ export function initStudents() {
 
   function updateDropdown() {
     if (!studentSelect) return;
-    const students = store.get('students') || [];
+    const students = getFilteredStudents();
     if (students.length === 0) {
       studentSelect.innerHTML = '<option value="">No profiles yet</option>';
       studentSelect.disabled = true;
@@ -62,7 +71,7 @@ export function initStudents() {
     }
     studentSelect.disabled = false;
     studentSelect.innerHTML = students.map(s => 
-      `<option value="${s.id || s.uid}">Roll ${s.roll} — ${s.name}</option>`
+      `<option value="${s.id || s.uid}">${s.name} (${s.house || 'Unity'} House)</option>`
     ).join('');
     studentSelect.value = store.get('currentStudentId') || (students[0].id || students[0].uid);
   }
@@ -70,72 +79,115 @@ export function initStudents() {
   function updateProfile(studentId) {
     const students = store.get('students') || [];
     const user = authService.getCurrentUser();
-    if (students.length === 0) {
-      store.set('currentStudentId', null, false);
-      renderProfileView(null);
-      return;
-    }
+    const isViewingOwn = !studentId || (user && (studentId === user.uid || studentId === 'my-profile'));
+
     let current = null;
-    if (studentId) {
+    if (studentId && studentId !== 'my-profile') {
       current = students.find(s => (s.id || s.uid) === studentId);
-    }
-    if (!current && user) {
+    } else if (user) {
       current = students.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
     }
-    if (!current) {
+
+    if (!current && isViewingOwn) {
+      // Current user has not created a profile yet (e.g. admin who skipped onboarding)
+      store.set('currentStudentId', user?.uid || null, false);
+      renderProfileView({ isUncreated: true }, user ? user.uid : null);
+      return;
+    }
+
+    if (!current && students.length > 0) {
       current = students[0];
     }
+
     if (current) {
       const id = current.id || current.uid;
       store.set('currentStudentId', id, false);
       if (studentSelect) studentSelect.value = id;
       renderProfileView(current, user ? user.uid : null);
+    } else {
+      store.set('currentStudentId', null, false);
+      renderProfileView(null);
     }
   }
 
-  // Edit Profile button handler on #profile
-  document.querySelector('#profile')?.addEventListener('click', (e) => {
-    const editBtn = e.target.closest('#edit-my-profile-btn');
-    if (!editBtn) return;
+  function openProfileModal(existingProfile = null) {
     const user = authService.getCurrentUser();
-    const students = store.get('students') || [];
-    const myProfile = students.find(s => (s.id || s.uid) === user?.uid || s.ownerUid === user?.uid);
-    if (!myProfile) return;
+    if (!user) return;
 
-    // Pre-populate form with existing profile data
     const nameEl = document.getElementById('student-name');
-    const rollEl = document.getElementById('student-roll');
     const houseEl = document.getElementById('student-house');
     const groupEl = document.getElementById('student-group');
     const catEl = document.getElementById('student-category');
     const tagsEl = document.getElementById('student-tags');
     const bioEl = document.getElementById('student-bio');
     const subjEl = document.getElementById('student-subject');
-    const bdayEl = document.getElementById('student-birthday');
+    const bdayMonthEl = document.getElementById('student-bday-month');
+    const bdayDayEl = document.getElementById('student-bday-day');
     const quoteEl = document.getElementById('student-quote');
     const factEl = document.getElementById('student-fact');
     const contactEl = document.getElementById('student-contact');
     const showBdayEl = document.getElementById('student-show-birthday');
     const showContactEl = document.getElementById('student-show-contact');
+    const showDirEl = document.getElementById('student-show-directory');
+    const adminDirRow = document.getElementById('student-admin-dir-row');
 
-    if (nameEl) nameEl.value = myProfile.name || '';
-    if (rollEl) rollEl.value = myProfile.roll || '';
-    if (houseEl) houseEl.value = myProfile.house || 'Unity';
-    if (groupEl) groupEl.value = myProfile.group || 'Pre-Medical';
-    if (catEl) catEl.value = myProfile.category || 'Sports';
-    if (tagsEl) tagsEl.value = myProfile.tags || '';
-    if (bioEl) bioEl.value = myProfile.bio || '';
-    if (subjEl) subjEl.value = myProfile.favSubject || '';
-    if (bdayEl) bdayEl.value = myProfile.birthday || '';
-    if (quoteEl) quoteEl.value = (myProfile.favQuote || '').replace(/^"|"$/g, '');
-    if (factEl) factEl.value = myProfile.funFact || '';
-    if (contactEl) contactEl.value = myProfile.contact || '';
-    if (showBdayEl) showBdayEl.checked = !!myProfile.showBirthday;
-    if (showContactEl) showContactEl.checked = !!myProfile.showContact;
+    if (adminDirRow) {
+      adminDirRow.classList.toggle('hidden-admin', !store.get('isAdmin'));
+    }
+
+    if (existingProfile) {
+      if (nameEl) nameEl.value = existingProfile.name || '';
+      if (houseEl) houseEl.value = existingProfile.house || 'Unity';
+      if (groupEl) groupEl.value = existingProfile.group || 'Pre-Medical';
+      if (catEl) catEl.value = existingProfile.category || 'Sports';
+      if (tagsEl) tagsEl.value = existingProfile.tags || 'Cricket';
+      if (bioEl) bioEl.value = existingProfile.bio || '';
+      if (subjEl) subjEl.value = existingProfile.favSubject || 'Computer Science';
+      if (existingProfile.birthday) {
+        const parts = existingProfile.birthday.split(' ');
+        if (parts.length === 2) {
+          if (bdayDayEl) bdayDayEl.value = parts[0];
+          if (bdayMonthEl) bdayMonthEl.value = parts[1];
+        }
+      }
+      if (quoteEl) quoteEl.value = (existingProfile.favQuote || '').replace(/^"|"$/g, '');
+      if (factEl) factEl.value = existingProfile.funFact || '';
+      if (contactEl) contactEl.value = existingProfile.contact || '';
+      if (showBdayEl) showBdayEl.checked = !!existingProfile.showBirthday;
+      if (showContactEl) showContactEl.checked = !!existingProfile.showContact;
+      if (showDirEl) showDirEl.checked = existingProfile.showInDirectory !== false;
+    } else {
+      if (nameEl) nameEl.value = user.displayName || '';
+      if (houseEl) houseEl.value = 'Unity';
+      if (groupEl) groupEl.value = 'Pre-Medical';
+      if (catEl) catEl.value = 'Sports';
+      if (tagsEl) tagsEl.value = 'Cricket';
+      if (bioEl) bioEl.value = '';
+      if (subjEl) subjEl.value = 'Computer Science';
+      if (bdayDayEl) bdayDayEl.value = '';
+      if (bdayMonthEl) bdayMonthEl.value = '';
+      if (quoteEl) quoteEl.value = '';
+      if (factEl) factEl.value = '';
+      if (contactEl) contactEl.value = '';
+      if (showBdayEl) showBdayEl.checked = false;
+      if (showContactEl) showContactEl.checked = false;
+      if (showDirEl) showDirEl.checked = true;
+    }
 
     const modalTitle = document.querySelector('#add-student-modal .modal-header h3');
-    if (modalTitle) modalTitle.textContent = 'Edit Your Student Profile';
+    if (modalTitle) modalTitle.textContent = existingProfile ? 'Edit Your Student Profile' : 'Create Your Profile';
     addStudentModal?.classList.add('active');
+  }
+
+  // Profile action buttons (Edit Profile or Create Profile) on #profile
+  document.querySelector('#profile')?.addEventListener('click', (e) => {
+    const editBtn = e.target.closest('#edit-my-profile-btn');
+    const createBtn = e.target.closest('#create-my-profile-btn');
+    if (!editBtn && !createBtn) return;
+    const user = authService.getCurrentUser();
+    const students = store.get('students') || [];
+    const myProfile = students.find(s => (s.id || s.uid) === user?.uid || s.ownerUid === user?.uid);
+    openProfileModal(myProfile);
   });
 
   if (loadMoreBtn) {
@@ -197,31 +249,49 @@ export function initStudents() {
       e.preventDefault();
       const user = authService.getCurrentUser();
       if (!user) {
-        showToast('Please sign in with Google to create your student profile.', 'error');
+        showToast('Please sign in with Google.', 'error');
         return;
       }
 
       const name = document.getElementById('student-name').value.trim();
-      const roll = document.getElementById('student-roll').value.trim();
       const house = document.getElementById('student-house')?.value || 'Unity';
       const group = document.getElementById('student-group')?.value || 'Pre-Medical';
-      const category = document.getElementById('student-category').value;
-      const tags = document.getElementById('student-tags').value.trim();
+      const category = document.getElementById('student-category')?.value || 'Sports';
+      const tags = document.getElementById('student-tags')?.value || 'Cricket';
       const bio = document.getElementById('student-bio').value.trim();
-      const favSubject = document.getElementById('student-subject').value.trim();
-      const birthday = document.getElementById('student-birthday').value.trim();
+      const favSubject = document.getElementById('student-subject')?.value || 'Computer Science';
+      const bdayMonth = document.getElementById('student-bday-month')?.value || '';
+      const bdayDay = document.getElementById('student-bday-day')?.value || '';
+      const birthday = (bdayMonth && bdayDay) ? `${bdayDay} ${bdayMonth}` : '';
       const favQuote = document.getElementById('student-quote').value.trim();
       const funFact = document.getElementById('student-fact').value.trim();
       const contact = document.getElementById('student-contact').value.trim();
-
       const showBirthday = document.getElementById('student-show-birthday')?.checked ?? false;
       const showContact = document.getElementById('student-show-contact')?.checked ?? false;
+      const showDirEl = document.getElementById('student-show-directory');
+      const showInDirectory = showDirEl ? !!showDirEl.checked : true;
+
+      if (!name || name.length < 3 || !/^[a-zA-Z\s\.\-]{3,60}$/.test(name)) {
+        showToast('Please enter a valid full name (at least 3 letters, no numbers or special symbols).', 'error');
+        return;
+      }
+      if (!bio || bio.length < 15) {
+        showToast('Please write a short bio & ambition (at least 15 characters).', 'error');
+        return;
+      }
+      if (!favQuote || favQuote.length < 8) {
+        showToast('Please enter a favourite quote (at least 8 characters).', 'error');
+        return;
+      }
+      if (!funFact || funFact.length < 8) {
+        showToast('Please enter a fun fact (at least 8 characters).', 'error');
+        return;
+      }
 
       const payload = {
         classId: store.get('currentClassId') || '',
         ownerUid: user.uid,
         name,
-        roll,
         house,
         group,
         category,
@@ -233,7 +303,9 @@ export function initStudents() {
         gradientIndex: Math.floor(Math.random() * 8),
         initials: extractInitials(name),
         showBirthday,
-        showContact
+        showContact,
+        showInDirectory,
+        verified: true
       };
 
       if (showBirthday && birthday) payload.birthday = birthday;
@@ -249,6 +321,19 @@ export function initStudents() {
           await createDocument('students', payload, user.uid);
           showToast(`Profile published for ${name}!`, 'success');
         }
+
+        // Update user's displayName in users/{uid} and in authService so top-right shows new name
+        const updatedUser = {
+          ...user,
+          displayName: name
+        };
+        authService.setUser(updatedUser);
+        try {
+          await updateDocument('users', user.uid, { displayName: name });
+        } catch (e) {
+          console.warn('Update user doc displayName error:', e);
+        }
+
         addStudentForm.reset();
         if (addStudentModal) addStudentModal.classList.remove('active');
         router.navigate('profile', { id: user.uid });

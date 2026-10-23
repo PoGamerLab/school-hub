@@ -157,11 +157,12 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- 8. students/{uid} (Activation batch creation, verified=true, same class read) ---
+    // --- 8. students/{uid} (Activation batch creation or Admin creation) ---
     match /students/{uid} {
       allow read: if isActive() && inMyClass(resource.data.classId);
 
-      allow create: if isOwner(uid) && siteWritable() &&
+      allow create: if (isAdmin() && siteWritable() && request.resource.data.ownerUid == uid) || (
+        isOwner(uid) && siteWritable() &&
         get(/databases/$(database)/documents/users/$(uid)).data.status == 'needs_profile' &&
         getAfter(/databases/$(database)/documents/users/$(uid)).data.status == 'active' &&
         request.resource.data.ownerUid == uid &&
@@ -170,11 +171,10 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'name', 'roll', 'category', 'tags', 'bio', 'favSubject', 'favQuote', 'funFact',
           'gradientIndex', 'initials', 'classId', 'ownerUid', 'showBirthday', 'showContact',
-          'birthday', 'contact', 'verified', 'house', 'group', 'createdAt'
+          'birthday', 'contact', 'verified', 'house', 'group', 'showInDirectory', 'createdAt'
         ]) &&
         request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
-        request.resource.data.roll is string && request.resource.data.roll.size() <= 10 &&
-        request.resource.data.category in ['Sports', 'Music', 'Coding', 'Art', 'Debates'] &&
+        (!('roll' in request.resource.data) || (request.resource.data.roll is string && request.resource.data.roll.size() <= 10)) &&
         request.resource.data.tags is string && request.resource.data.tags.size() <= 100 &&
         request.resource.data.bio is string && request.resource.data.bio.size() <= 500 &&
         request.resource.data.favSubject is string && request.resource.data.favSubject.size() <= 60 &&
@@ -184,21 +184,23 @@ service cloud.firestore {
         request.resource.data.initials is string && request.resource.data.initials.size() <= 4 &&
         request.resource.data.showBirthday is bool &&
         request.resource.data.showContact is bool &&
+        (!('showInDirectory' in request.resource.data) || request.resource.data.showInDirectory is bool) &&
         (!('birthday' in request.resource.data) || (request.resource.data.showBirthday == true && request.resource.data.birthday is string && request.resource.data.birthday.size() <= 30)) &&
         (!('contact' in request.resource.data) || (request.resource.data.showContact == true && request.resource.data.contact is string && request.resource.data.contact.size() <= 60)) &&
-        request.resource.data.createdAt == request.time;
+        request.resource.data.createdAt == request.time
+      );
 
       allow update: if (resource.data.ownerUid == request.auth.uid || isAdmin()) && isActive() && siteWritable() &&
         request.resource.data.ownerUid == resource.data.ownerUid &&
         request.resource.data.classId == resource.data.classId &&
-        request.resource.data.verified == resource.data.verified &&
         request.resource.data.keys().hasOnly([
           'name', 'roll', 'category', 'tags', 'bio', 'favSubject', 'favQuote', 'funFact',
           'gradientIndex', 'initials', 'classId', 'ownerUid', 'showBirthday', 'showContact',
-          'birthday', 'contact', 'verified', 'house', 'group', 'createdAt'
+          'birthday', 'contact', 'verified', 'house', 'group', 'showInDirectory', 'createdAt'
         ]) &&
         request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
         request.resource.data.bio is string && request.resource.data.bio.size() <= 500 &&
+        (!('showInDirectory' in request.resource.data) || request.resource.data.showInDirectory is bool) &&
         (!('birthday' in request.resource.data) || (request.resource.data.showBirthday == true && request.resource.data.birthday is string && request.resource.data.birthday.size() <= 30)) &&
         (!('contact' in request.resource.data) || (request.resource.data.showContact == true && request.resource.data.contact is string && request.resource.data.contact.size() <= 60));
 
@@ -232,10 +234,9 @@ service cloud.firestore {
            request.resource.data.reactions.diff(resource.data.reactions).affectedKeys().hasOnly([request.auth.uid]) &&
            (!request.resource.data.reactions.keys().hasAny([request.auth.uid]) ||
             request.resource.data.reactions[request.auth.uid] in ['laugh', 'heart', 'fire'])) ||
-          // C: Report
+          // C: Report (with reason and details)
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reports']) &&
-           request.resource.data.reports.diff(resource.data.reports).affectedKeys().hasOnly([request.auth.uid]) &&
-           request.resource.data.reports[request.auth.uid] == true)
+           request.resource.data.reports.diff(resource.data.reports).affectedKeys().hasOnly([request.auth.uid]))
         )
       );
 
@@ -247,7 +248,7 @@ service cloud.firestore {
       allow read: if isActive() && inMyClass(resource.data.classId);
 
       allow create: if isActive() && inMyClass(request.resource.data.classId) && siteWritable() &&
-        request.resource.data.keys().hasOnly(['classId', 'createdBy', 'title', 'icon', 'nominees', 'votes', 'closesAt', 'createdAt']) &&
+        request.resource.data.keys().hasOnly(['classId', 'createdBy', 'title', 'icon', 'nominees', 'votes', 'reports', 'closesAt', 'createdAt']) &&
         request.resource.data.createdBy == request.auth.uid &&
         request.resource.data.title is string && request.resource.data.title.size() <= 80 &&
         request.resource.data.icon is string && request.resource.data.icon.size() <= 10 &&
@@ -256,13 +257,14 @@ service cloud.firestore {
         request.resource.data.createdAt == request.time;
 
       allow update: if isAdmin() || (
-        isActive() && inMyClass(resource.data.classId) && siteWritable() &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']) &&
-        request.resource.data.votes.diff(resource.data.votes).affectedKeys().hasOnly([request.auth.uid]) &&
-        (!('closesAt' in resource.data) || request.time < resource.data.closesAt) &&
-        (
-          !request.resource.data.votes.keys().hasAny([request.auth.uid]) ||
-          resource.data.nominees.hasAny([request.resource.data.votes[request.auth.uid]])
+        isActive() && inMyClass(resource.data.classId) && siteWritable() && (
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['votes']) &&
+           request.resource.data.votes.diff(resource.data.votes).affectedKeys().hasOnly([request.auth.uid]) &&
+           (!('closesAt' in resource.data) || request.time < resource.data.closesAt) &&
+           (!request.resource.data.votes.keys().hasAny([request.auth.uid]) ||
+            resource.data.nominees.hasAny([request.resource.data.votes[request.auth.uid]]))) ||
+          (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reports']) &&
+           request.resource.data.reports.diff(resource.data.reports).affectedKeys().hasOnly([request.auth.uid]))
         )
       );
 
