@@ -10,7 +10,7 @@ export function renderGateIncomplete() {
       <span class="gate-badge">Student Verification</span>
       <h2 class="gate-title">Setup Incomplete</h2>
       <div class="gate-notice warning">
-        Setup incomplete, please tell the administrator to configure the verification questions.
+        Setup incomplete, please tell the admin.
       </div>
     </div>
   `;

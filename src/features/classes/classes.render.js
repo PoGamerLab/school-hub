@@ -49,7 +49,7 @@ export function renderPendingProposals(proposals, currentUid, onSupport) {
 
   return `
     <div class="proposals-section">
-      <h3 style="font-size:18px; margin-bottom:12px; color:var(--pine);">Pending Class Proposals</h3>
+      <h3 class="proposals-heading">Pending Class Proposals</h3>
       <div class="proposals-list">${rows}</div>
     </div>
   `;

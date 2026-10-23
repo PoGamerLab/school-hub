@@ -52,6 +52,7 @@ class AuthService {
   constructor() {
     this.user = null;
     this.initialized = false;
+    this._userUnsub = null;
     /** Resolves when the first auth state is known (true = resolved). */
     this._authReady = new Promise(res => { this._resolveAuthReady = res; });
   }
@@ -71,6 +72,11 @@ class AuthService {
       const { onAuthStateChanged } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
 
       onAuthStateChanged(firebase.auth, async (firebaseUser) => {
+        if (this._userUnsub) {
+          this._userUnsub();
+          this._userUnsub = null;
+        }
+
         if (firebaseUser) {
           await this._loadProfile(firebase, firebaseUser, 1);
         } else {
@@ -88,7 +94,7 @@ class AuthService {
   /** Load user profile with retry (P0-8). Keeps Google session on failure. */
   async _loadProfile(firebase, firebaseUser, attempt) {
     try {
-      const { doc, getDoc, setDoc, serverTimestamp } =
+      const { doc, getDoc, setDoc, serverTimestamp, onSnapshot } =
         await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
 
       const userRef = doc(firebase.db, 'users', firebaseUser.uid);
@@ -129,6 +135,27 @@ class AuthService {
         status: userData.status || 'needs_gate',
         onboardingStep: userData.onboardingStep || 0,
         isAdmin
+      });
+
+      // Listen for real-time status/ban changes (multi-tab sync, admin actions)
+      if (this._userUnsub) {
+        this._userUnsub();
+      }
+      this._userUnsub = onSnapshot(userRef, (snap) => {
+        if (!snap.exists()) return;
+        const currentData = snap.data();
+        this.setUser({
+          uid: firebaseUser.uid,
+          displayName: currentData.displayName || firebaseUser.displayName || 'Classmate',
+          email: firebaseUser.email,
+          photoURL: currentData.photoURL || firebaseUser.photoURL || '',
+          classId: currentData.classId || '',
+          role: currentData.role || 'member',
+          banned: currentData.banned || false,
+          status: currentData.status || 'needs_gate',
+          onboardingStep: currentData.onboardingStep || 0,
+          isAdmin
+        });
       });
     } catch (err) {
       console.error(`[Auth] Profile load attempt ${attempt} failed:`, err);
@@ -189,6 +216,10 @@ class AuthService {
   }
 
   async signOut() {
+    if (this._userUnsub) {
+      this._userUnsub();
+      this._userUnsub = null;
+    }
     const firebase = await initFirebase();
     if (firebase && firebase.auth) {
       const { signOut } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');

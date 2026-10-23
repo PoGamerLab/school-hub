@@ -114,6 +114,12 @@
   margin-top: 4px;
 }
 
+.proposals-heading {
+  font-size: 18px;
+  margin-bottom: 12px;
+  color: var(--pine);
+}
+
 @media (max-width: 600px) {
   .class-banner {
     padding: 24px 18px;
