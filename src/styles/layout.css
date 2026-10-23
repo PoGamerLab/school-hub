@@ -236,11 +236,15 @@ footer {
 }
 
 /* App Loading Screen (P0-2) */
+/* Starts below the topnav so Sign In button is always clickable */
 .app-loading-screen {
   position: fixed;
-  inset: 0;
+  top: 61px; /* topnav: 12px padding-top + ~37px content + 12px padding-bottom */
+  left: 0;
+  right: 0;
+  bottom: 0;
   background: var(--paper);
-  z-index: 9000;
+  z-index: 8000;
   display: flex;
   flex-direction: column;
   align-items: center;

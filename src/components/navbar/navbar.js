@@ -48,8 +48,10 @@ export function initNavbar() {
     const navlinks = document.querySelector('.navlinks');
     const navToggle = document.getElementById('nav-toggle-btn');
 
-    if (navlinks) navlinks.style.display = isActiveUser ? '' : 'none';
-    if (navToggle) navToggle.style.display = isActiveUser ? '' : 'none';
+    // Hide nav tabs and hamburger only for non-active users.
+    // The .nav-auth area (Sign In / avatar) is always visible.
+    if (navlinks) navlinks.classList.toggle('hidden-auth', !isActiveUser);
+    if (navToggle) navToggle.classList.toggle('hidden-auth', !isActiveUser);
     if (!isActiveUser && mobileDrawer) mobileDrawer.classList.remove('open');
   }
 
