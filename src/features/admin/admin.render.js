@@ -20,6 +20,61 @@ export function renderReportedMemoryRow(mem) {
   `;
 }
 
+export function renderClassManager(classes = []) {
+  const classItems = classes.map(c => `
+    <div class="admin-item-row" data-id="${escapeAttr(c.id)}">
+      <div>
+        <div class="admin-item-quote">${escapeHtml(c.name || c.id)} <span class="tag mono">${escapeHtml(c.id)}</span></div>
+        <div class="admin-item-meta">${escapeHtml(c.grade || '')} &middot; Section ${escapeHtml(c.section || '')} &middot; Teacher: ${escapeHtml(c.classTeacher || 'Not assigned')}</div>
+      </div>
+      <div class="admin-actions">
+        <button class="btn-danger" data-action="delete-class" data-id="${escapeAttr(c.id)}">Delete</button>
+      </div>
+    </div>
+  `).join('');
+
+  return `
+    <form id="admin-create-class-form" class="admin-class-form">
+      <div class="form-row">
+        <div class="form-group form-col">
+          <label for="admin-new-class-id">Class Identifier (Slug)</label>
+          <input type="text" id="admin-new-class-id" placeholder="e.g. 10-b" required maxlength="30">
+        </div>
+        <div class="form-group form-col">
+          <label for="admin-new-class-name">Class Name</label>
+          <input type="text" id="admin-new-class-name" placeholder="e.g. Grade 10 — Section B" required maxlength="80">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group form-col">
+          <label for="admin-new-class-grade">Grade</label>
+          <input type="text" id="admin-new-class-grade" placeholder="e.g. Grade 10" required maxlength="20">
+        </div>
+        <div class="form-group form-col">
+          <label for="admin-new-class-section">Section</label>
+          <input type="text" id="admin-new-class-section" placeholder="e.g. Section B" required maxlength="10">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group form-col">
+          <label for="admin-new-class-teacher">Class Teacher</label>
+          <input type="text" id="admin-new-class-teacher" placeholder="e.g. Ma'am Farida Baig" maxlength="80">
+        </div>
+        <div class="form-group form-col">
+          <label for="admin-new-class-room">Room</label>
+          <input type="text" id="admin-new-class-room" placeholder="e.g. Room 14" maxlength="50">
+        </div>
+      </div>
+      <button type="submit" class="btn btn-primary" id="admin-create-class-submit-btn">+ Create Active Class</button>
+    </form>
+
+    <div class="admin-classes-list">
+      <h4>Active Classes (${classes.length})</h4>
+      ${classItems || '<div class="admin-empty-notice">No active classes yet. Create one above to get started!</div>'}
+    </div>
+  `;
+}
+
 export function renderGateEditor(questions = {}, answers = {}, classes = []) {
   const q1Text = escapeAttr(questions?.q1Text || 'What is our school motto?');
   const q2Text = escapeAttr(questions?.q2Text || 'What color is our school crest border?');
@@ -66,10 +121,7 @@ export function renderGateEditor(questions = {}, answers = {}, classes = []) {
 
       <div class="admin-class-answers-box">
         ${classRows || `
-          <div class="form-group">
-            <label for="admin-q3-class-10-b">Q3 Answers for Class 10-B</label>
-            <input type="text" id="admin-q3-class-10-b" data-class-id="10-b" class="admin-q3-class-input" value="${escapeAttr((q3ByClass['10-b'] || []).join(', '))}" placeholder="e.g. Sir Tariq, Tariq Sahib">
-          </div>
+          <p class="admin-empty-notice">No active classes yet. Create a class in Class Management above to configure its class-specific Q3 answers.</p>
         `}
       </div>
 

@@ -98,7 +98,7 @@ export function initSuperlatives() {
       }
 
       const payload = {
-        classId: store.get('currentClassId') || '10-b',
+        classId: store.get('currentClassId') || '',
         createdBy: user.uid,
         title,
         icon,
@@ -120,7 +120,7 @@ export function initSuperlatives() {
 
   // P0-6: Screen-scoped subscription
   async function startSubscription() {
-    const classId = store.get('currentClassId') || '10-b';
+    const classId = store.get('currentClassId') || '';
     activeSub = await subscribeClassCollection('superlatives', classId, (_items, hasMore) => {
       render();
       if (loadMoreContainer) {

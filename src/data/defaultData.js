@@ -3,16 +3,7 @@
  * Clean slate: all template/fake entries removed so users can add real information.
  */
 
-export const defaultClassInfo = {
-  id: "10-b",
-  name: "Grade 10 — Section B",
-  session: "SESSION 2025–26",
-  classTeacher: "Ma'am Farida Baig",
-  room: "Room 14",
-  track: "FBISE Secondary Science Track",
-  avatar: "10B",
-  status: "active"
-};
+export const defaultClassInfo = null;
 
 // Real student profiles added by classmates via "+ Add my profile"
 export const defaultStudents = [];

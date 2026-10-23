@@ -4,7 +4,7 @@ import { authService } from '../../core/auth/auth.js';
 import { renderStudentCard, renderProfileView } from './students.render.js';
 import { extractInitials } from '../../core/utils/ids.js';
 import { showToast } from '../../components/toast/toast.js';
-import { subscribeClassCollection, unsubscribeCollection, createDocument } from '../../core/db/firestore.js';
+import { subscribeClassCollection, unsubscribeCollection, createDocument, updateDocument } from '../../core/db/firestore.js';
 
 export function initStudents() {
   const gridContainer = document.querySelector('.grid');
@@ -69,19 +69,70 @@ export function initStudents() {
 
   function updateProfile(studentId) {
     const students = store.get('students') || [];
+    const user = authService.getCurrentUser();
     if (students.length === 0) {
       store.set('currentStudentId', null, false);
       renderProfileView(null);
       return;
     }
-    const current = students.find(s => (s.id || s.uid) === studentId) || students[0];
+    let current = null;
+    if (studentId) {
+      current = students.find(s => (s.id || s.uid) === studentId);
+    }
+    if (!current && user) {
+      current = students.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
+    }
+    if (!current) {
+      current = students[0];
+    }
     if (current) {
       const id = current.id || current.uid;
       store.set('currentStudentId', id, false);
       if (studentSelect) studentSelect.value = id;
-      renderProfileView(current);
+      renderProfileView(current, user ? user.uid : null);
     }
   }
+
+  // Edit Profile button handler on #profile
+  document.querySelector('#profile')?.addEventListener('click', (e) => {
+    const editBtn = e.target.closest('#edit-my-profile-btn');
+    if (!editBtn) return;
+    const user = authService.getCurrentUser();
+    const students = store.get('students') || [];
+    const myProfile = students.find(s => (s.id || s.uid) === user?.uid || s.ownerUid === user?.uid);
+    if (!myProfile) return;
+
+    // Pre-populate form with existing profile data
+    const nameEl = document.getElementById('student-name');
+    const rollEl = document.getElementById('student-roll');
+    const catEl = document.getElementById('student-category');
+    const tagsEl = document.getElementById('student-tags');
+    const bioEl = document.getElementById('student-bio');
+    const subjEl = document.getElementById('student-subject');
+    const bdayEl = document.getElementById('student-birthday');
+    const quoteEl = document.getElementById('student-quote');
+    const factEl = document.getElementById('student-fact');
+    const contactEl = document.getElementById('student-contact');
+    const showBdayEl = document.getElementById('student-show-birthday');
+    const showContactEl = document.getElementById('student-show-contact');
+
+    if (nameEl) nameEl.value = myProfile.name || '';
+    if (rollEl) rollEl.value = myProfile.roll || '';
+    if (catEl) catEl.value = myProfile.category || 'Sports';
+    if (tagsEl) tagsEl.value = myProfile.tags || '';
+    if (bioEl) bioEl.value = myProfile.bio || '';
+    if (subjEl) subjEl.value = myProfile.favSubject || '';
+    if (bdayEl) bdayEl.value = myProfile.birthday || '';
+    if (quoteEl) quoteEl.value = (myProfile.favQuote || '').replace(/^"|"$/g, '');
+    if (factEl) factEl.value = myProfile.funFact || '';
+    if (contactEl) contactEl.value = myProfile.contact || '';
+    if (showBdayEl) showBdayEl.checked = !!myProfile.showBirthday;
+    if (showContactEl) showContactEl.checked = !!myProfile.showContact;
+
+    const modalTitle = document.querySelector('#add-student-modal .modal-header h3');
+    if (modalTitle) modalTitle.textContent = 'Edit Your Student Profile';
+    addStudentModal?.classList.add('active');
+  });
 
   if (loadMoreBtn) {
     loadMoreBtn.addEventListener('click', async () => {
@@ -161,7 +212,7 @@ export function initStudents() {
       const showContact = document.getElementById('student-show-contact')?.checked ?? false;
 
       const payload = {
-        classId: store.get('currentClassId') || '10-b',
+        classId: store.get('currentClassId') || '',
         ownerUid: user.uid,
         name,
         roll,
@@ -180,14 +231,21 @@ export function initStudents() {
       if (showBirthday && birthday) payload.birthday = birthday;
       if (showContact && contact) payload.contact = contact;
 
+      const isExisting = (store.get('students') || []).some(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
+
       try {
-        await createDocument('students', payload, user.uid);
+        if (isExisting) {
+          await updateDocument('students', user.uid, payload);
+          showToast('Profile updated successfully!', 'success');
+        } else {
+          await createDocument('students', payload, user.uid);
+          showToast(`Profile published for ${name}!`, 'success');
+        }
         addStudentForm.reset();
         if (addStudentModal) addStudentModal.classList.remove('active');
-        showToast(`Profile published for ${name}!`, 'success');
         router.navigate('profile', { id: user.uid });
       } catch (err) {
-        console.error('Failed to publish profile:', err);
+        console.error('Failed to save profile:', err);
         showToast(`Error: ${err.message}`, 'error');
       }
     });
@@ -195,7 +253,7 @@ export function initStudents() {
 
   // P0-6: Screen-scoped subscription functions
   async function startSubscription() {
-    const classId = store.get('currentClassId') || '10-b';
+    const classId = store.get('currentClassId') || '';
     activeSub = await subscribeClassCollection('students', classId, (_items, hasMore) => {
       renderGrid();
       updateDropdown();

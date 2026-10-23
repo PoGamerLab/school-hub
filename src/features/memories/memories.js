@@ -64,8 +64,8 @@ export function initMemories() {
         }
 
         const memoryId = reactionBtn.dataset.id;
-        const reactionType = reactionBtn.dataset.type;
-        const hasReacted = reactionBtn.classList.contains('active');
+        const reactionType = reactionBtn.dataset.code;
+        const hasReacted = reactionBtn.classList.contains('user-reacted');
 
         try {
           if (hasReacted) {
@@ -119,7 +119,7 @@ export function initMemories() {
       const context = document.getElementById('memory-context').value.trim();
 
       const payload = {
-        classId: store.get('currentClassId') || '10-b',
+        classId: store.get('currentClassId') || '',
         authorUid: user.uid,
         quote,
         author,
@@ -142,7 +142,7 @@ export function initMemories() {
 
   // P0-6: Screen-scoped subscription
   async function startSubscription() {
-    const classId = store.get('currentClassId') || '10-b';
+    const classId = store.get('currentClassId') || '';
     activeSub = await subscribeClassCollection('memories', classId, (_items, hasMore) => {
       render();
       if (loadMoreContainer) {

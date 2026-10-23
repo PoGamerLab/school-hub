@@ -118,6 +118,71 @@
   border: 1px solid var(--line);
 }
 
+/* Avatar Dropdown Menu */
+.auth-dropdown-wrapper {
+  position: relative;
+}
+
+.auth-user-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--paper-dim);
+  padding: 3px 10px 3px 4px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.auth-user-btn:hover {
+  border-color: var(--gold);
+}
+
+.auth-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+  min-width: 150px;
+  padding: 6px 0;
+  display: none;
+  flex-direction: column;
+  z-index: 1000;
+}
+
+.auth-dropdown-menu.open {
+  display: flex;
+}
+
+.auth-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--pine-deep);
+  background: transparent;
+  border: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.1s ease;
+}
+
+.auth-dropdown-item:hover {
+  background: var(--paper-dim);
+}
+
+.auth-dropdown-item.danger {
+  color: var(--red);
+  border-top: 1px solid var(--line);
+}
+
 .auth-avatar {
   width: 26px;
   height: 26px;

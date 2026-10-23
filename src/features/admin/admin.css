@@ -78,3 +78,15 @@
   font-size: 12px;
   cursor: pointer;
 }
+
+.admin-class-form {
+  margin-bottom: 24px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid var(--line);
+}
+
+.admin-classes-list h4 {
+  font-size: 14px;
+  color: var(--pine-deep);
+  margin-bottom: 12px;
+}

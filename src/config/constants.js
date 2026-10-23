@@ -18,7 +18,7 @@ export const COLLECTIONS = {
   DRAFTS:       'drafts'
 };
 
-export const DEFAULT_CLASS_ID = '10-b';
+export const DEFAULT_CLASS_ID = '';
 
 export const LIMITS = {
   PAGE_SIZE_STUDENTS: 30,

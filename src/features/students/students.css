@@ -138,6 +138,14 @@
   border-radius: 4px;
 }
 
+.profile-title-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .profile-main .pname {
   font-size: clamp(24px, 4vw, 32px);
   color: var(--pine-deep);

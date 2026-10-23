@@ -70,7 +70,7 @@ export function initGallery() {
       }
 
       const payload = {
-        classId: store.get('currentClassId') || '10-b',
+        classId: store.get('currentClassId') || '',
         ownerUid: user.uid,
         caption,
         url
@@ -90,7 +90,7 @@ export function initGallery() {
 
   // P0-6: Screen-scoped subscription on school screen
   async function startSubscription() {
-    const classId = store.get('currentClassId') || '10-b';
+    const classId = store.get('currentClassId') || '';
     activeSub = await subscribeClassCollection('gallery', classId, (_items, hasMore) => {
       render();
       if (loadMoreContainer) {

@@ -35,6 +35,8 @@ export function renderMemoryCard(mem, currentUid = null) {
     `;
   }).join('');
 
+  const isReportedByMe = currentUid && mem.reports && mem.reports[currentUid];
+
   return `
     <div class="memory-card" data-id="${safeId}">
       <div class="memory-quote">${safeQuote}</div>
@@ -46,8 +48,8 @@ export function renderMemoryCard(mem, currentUid = null) {
         <div class="reactions-list">
           ${reactionButtonsHtml}
         </div>
-        <button class="memory-report-btn" data-action="report" data-id="${safeId}" title="Report inappropriate entry">
-          🚩 Report
+        <button class="memory-report-btn ${isReportedByMe ? 'reported' : ''}" data-action="report" data-id="${safeId}" ${isReportedByMe ? 'disabled' : ''} title="${isReportedByMe ? 'You reported this entry' : 'Report inappropriate entry'}">
+          🚩 ${isReportedByMe ? 'Flagged' : 'Report'}
         </button>
       </div>
     </div>

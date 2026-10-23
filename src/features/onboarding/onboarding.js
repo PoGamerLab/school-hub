@@ -208,8 +208,9 @@ export function initOnboarding() {
     if (data.showContact && data.contact) payload.contact = data.contact;
 
     try {
-      await executeActivationBatch(user.uid, user.classId || '10-b', payload);
-      authService.setUser({ ...user, status: 'active' });
+      const activeClass = user.classId || store.get('currentClassId') || '';
+      await executeActivationBatch(user.uid, activeClass, payload);
+      authService.setUser({ ...user, status: 'active', classId: activeClass });
       showToast('Welcome! Your student membership is active.', 'success');
       router.onActivationComplete();
     } catch (err) {

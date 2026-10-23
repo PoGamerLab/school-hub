@@ -49,12 +49,11 @@
     <!-- Desktop Navigation Links -->
     <div class="navlinks">
       <button class="active" data-screen="home">Home</button>
-      <button data-screen="class">Class</button>
-      <button data-screen="students">Students</button>
-      <button data-screen="profile">Profile</button>
-      <button data-screen="school">About School</button>
-      <button data-screen="superlatives">Superlatives</button>
+      <button data-screen="class">Our Class</button>
       <button data-screen="memories">Memory Wall</button>
+      <button data-screen="superlatives">Superlatives</button>
+      <button data-screen="students">Students</button>
+      <button data-screen="school">About School</button>
       <button data-screen="admin" class="admin-nav-item hidden-admin">Admin</button>
     </div>
 
@@ -74,11 +73,10 @@
     <div class="mobile-nav-links">
       <button class="active" data-screen="home">🏠 Home</button>
       <button data-screen="class">🏫 Our Class</button>
-      <button data-screen="students">👥 Students Directory</button>
-      <button data-screen="profile">👤 Student Profile</button>
-      <button data-screen="school">🏛️ About School</button>
-      <button data-screen="superlatives">🏆 Superlatives</button>
       <button data-screen="memories">💭 Memory Wall</button>
+      <button data-screen="superlatives">🏆 Superlatives</button>
+      <button data-screen="students">👥 Students Directory</button>
+      <button data-screen="school">🏛️ About School</button>
       <button data-screen="admin" class="admin-nav-item hidden-admin">🛡️ Admin Console</button>
     </div>
   </div>
@@ -192,7 +190,7 @@
         </div>
         <div class="section-actions">
           <button class="btn btn-primary btn-sm auth-required" id="open-add-photo-btn">+ Add Picture</button>
-          <button class="btn btn-outline btn-sm auth-required" id="open-add-teacher-btn">+ Add Teacher</button>
+          <button class="btn btn-outline btn-sm admin-nav-item hidden-admin" id="open-add-teacher-btn">+ Add Teacher</button>
         </div>
       </div>
 
@@ -316,6 +314,13 @@
           <h2>Class Administrator Panel <span class="admin-badge">ADMIN</span></h2>
           <p class="section-head-subtitle">Manage class moderation, reports, and emergency controls</p>
         </div>
+      </div>
+
+      <!-- Class Management (Direct Active Class Creator for Admin) -->
+      <div class="admin-card">
+        <h3>Class Management</h3>
+        <p class="section-head-subtitle">Create and manage active classes. Classes created here are activated immediately and appear in the student gate.</p>
+        <div id="admin-class-manager-root"></div>
       </div>
 
       <div class="admin-card">

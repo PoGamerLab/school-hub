@@ -12,8 +12,7 @@ export async function fetchGateQuestions() {
 export async function fetchActiveClasses() {
   const res = await initFirebase();
   if (!res || !res.db) {
-    // Offline / Preview fallback
-    return [{ id: '10-b', name: '10th Grade — Section B' }];
+    return [];
   }
   const { collection, query, where, getDocs } =
     await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');

@@ -1,0 +1,274 @@
+School Hub: Build Spec (Phase 0 and Phase 1)
+Written for the coding agent. Phase 0 fixes known bugs. Phase 1 adds the student gate, mandatory onboarding and members-only access. Nothing else is in scope.
+1. Rules for the agent
+• Keep the multi-file structure: one folder per feature or component, each code file about 200–300 lines at most.
+• Styles live only in .css files. No inline style attributes, no styling inside JavaScript.
+• Escape every user-controlled value before it goes into HTML.
+• Do one numbered task at a time. Commit after each one and test it before starting the next.
+• Never put gate answers, invite codes or any secret in code or in the repo. The repo is public.
+• Security rules are the real protection. The page only mirrors them.
+• If this spec and the existing code disagree, follow this spec. If two parts of this spec disagree, stop and report it instead of guessing.
+• Out of scope for now: navigation reorder, My Profile editing, Admin Console v2, mobile pass, member-proposed classes. These come in later phases.
+2. Decisions already made
+Topic
+Decision
+Access
+Members-only. Signed-out people see only the landing page and the sign-in button.
+Verification
+Three typed questions: one school-wide fact, one class-specific fact, one more student-only fact. Answers are set by the admin and are never visible to students.
+Approval
+Automatic when the answers are correct. The admin can also approve, revoke or ban.
+Attempts
+Maximum 5 attempts per account, at least 10 minutes apart. The admin can reset.
+Read scope
+An active member reads only their own class’s content. School-wide content is readable by all active members.
+Onboarding
+Mandatory. Progress autosaves and resumes on any device.
+Teachers
+Created and edited by admin only.
+Admin identity
+A document in admins/{uid}, created by hand in the Firebase console.
+3. Phase 0: hotfixes
+Each task has the problem, the required behavior and an acceptance test.
+P0-1 Toast never disappears
+Problem: toast.css animates with the forwards fill mode, which holds the toast fully visible, so the fade-out class changes nothing and the transitionend event never fires. toast.js waits for that event to remove the toast.
+Required: remove each toast after its duration using a timer, not an event. Fade it out with its own animation or transition that is not overridden. Add a fallback timer that removes the element even if no event fires. Show at most 3 toasts at once and remove the oldest first. A tap or click dismisses a toast.
+Test: sign in and sign out. Each message disappears after about 3.5 seconds, including when the tab was in the background.
+P0-2 Admin route guard
+Problem: opening #admin shows the admin screen to anyone. The nav button is only hidden with CSS.
+Required: add one guard in the router that runs before any screen is shown. Every screen has an access level: public, member or admin. If the user is not allowed, go to Home and show a short message. While the auth state is still loading, show a neutral loading screen, not the requested screen. Keep the admin screen’s content out of the DOM until the server confirms admin (admins/{uid} exists), and load the admin code only after that.
+Test: open the admin link signed out, as a normal member and as admin. Only admin sees it. Reloading on the admin link as admin works.
+P0-3 Join payload rejected
+Problem: the data layer adds createdAt to every document, but the joins rule only allows classId, code and joinedAt, so joining always fails.
+Required: this flow is replaced by the gate in Phase 1. Until then, add createdAt to the allowed keys for joins, require it to equal the request time, and stop sending joinedAt.
+Test: joining with the correct code succeeds. A wrong code fails with a clear message.
+P0-4 Missing Firestore indexes
+Problem: lists filter by classId and sort by createdAt. This needs composite indexes. Errors are only logged to the console, so lists may silently show empty.
+Required: create these indexes in the Firebase console (or in firestore.indexes.json if the CLI is used): students, memories, gallery, teachers and superlatives, each with classId ascending and createdAt descending. After Phase 1, students also needs classId, verified, createdAt. Show a visible error message on the screen when a list query fails, not only in the console.
+Test: every list loads with data in a fresh browser.
+P0-5 Only 20 items load
+Problem: each list loads a maximum of 20, so a class of 40 shows half its students.
+Required: page size 30 for students and 20 for other lists. The first page uses a live listener. A Load more button fetches the next page using a cursor after the last item. Hide the button when a page returns fewer items than the page size.
+Test: with 45 test students, the list shows 30, then 45 after Load more.
+P0-6 Listeners start for every screen at boot
+Problem: all five listeners start at page load, costing up to about 100 reads per visit.
+Required: start a screen’s listener when the screen opens and stop it when the user leaves. Home subscribes to nothing.
+Test: open only Home and confirm no Firestore queries are made.
+P0-7 Fragile un-vote and un-react rules
+Problem: the vote and reaction rules read the user’s key before checking whether it was removed, so removal can fail with an error.
+Required: change the order so the own-key-removed case is tested first, then the value-is-valid case. Test both in the Rules Playground.
+Test: vote, change vote, remove vote, react, change reaction, remove reaction all succeed. Writing another user’s key still fails.
+P0-8 Silent sign-out when profile load fails
+Problem: if loading the user record fails, the app signs the user out without a message.
+Required: show an error banner with a Retry button and keep the Google session. Retry up to 3 times with a short delay before showing the banner.
+Test: simulate a failed read and confirm the banner appears.
+P0-9 Cleanup
+• Delete ADMIN_EMAILS and any code that reads it.
+• Remove unused imports in classes.js.
+• Remove the preview-mode local user that sets a class. Preview mode must never look like a signed-in member.
+• Delete all test data (students, memories and so on) before launch.
+4. Phase 1: gate, onboarding and members-only rules
+4.1 Data model
+users/{uid} (readable by the owner and admin only)
+• displayName, photoURL, createdAt (server time)
+• status: needs_gate, needs_profile, active or revoked
+• classId: empty string until the gate is passed
+• role: member, points: 0, banned: false
+• onboardingStep: integer 0 to 4
+gateConfig/questions (any signed-in user can read; admin writes)
+• q1Text, q2Text, q3Text and a version number
+gateConfig/answers (admin read and write only; the rules can read it)
+• q1: list of accepted answers (max 10, each up to 60 characters)
+• q2: list of accepted answers
+• q3ByClass: a map from classId to a list of accepted answers
+gate/{uid} (owner read and write only)
+• answers: a map with q1, q2 and q3, each a string up to 60 characters
+• classId: the class the student picked
+• attempts: integer
+• lastAttemptAt: server time
+drafts/{uid} (owner read and write only, and only while status is needs_profile)
+• step: integer 0 to 4
+• data: a map of the wizard fields, each string up to 500 characters
+• updatedAt: server time
+students/{uid} gets one new field: verified (boolean).
+4.2 Answer normalization (one shared helper)
+The page and the admin editor must use the same function: trim, lowercase, collapse repeated spaces, and remove punctuation except letters, numbers and spaces. A student’s answers are normalized before they are stored in gate/{uid}. The admin editor normalizes each accepted answer before saving it. The rules then compare them with plain equality inside the accepted list.
+4.3 State machine
+From
+To
+Who and how
+(new account)
+needs_gate
+The user creates their own users record. Rules force status needs_gate, classId empty and onboardingStep 0.
+needs_gate
+needs_profile
+The user updates exactly status and classId. Allowed only if the stored gate answers match gateConfig/answers and classId equals gate.classId.
+needs_profile
+active
+One batched write: create students/{uid} with verified true, and update users status to active. See 4.5.
+active
+revoked
+Admin only.
+any
+any
+Admin only, including reset to needs_gate.
+The user can never change role, points, banned or classId by any other path.
+4.4 Security rules spec
+Helper checks
+• isSignedIn: signed in with the Google provider.
+• isAdmin: admins/{uid} exists.
+• isActive: users/{uid} has status active and banned is not true (admin always passes).
+• inMyClass(classId): users/{uid}.classId equals classId.
+Each get or exists inside a rule is billed as one read per request, so keep the number of helper reads small.
+users/{uid}
+• Read: owner or admin.
+• Create: the owner, with keys limited to displayName, photoURL, classId, role, points, banned, createdAt, status and onboardingStep. Forced values: status needs_gate, classId empty, role member, points 0, banned false, onboardingStep 0, createdAt equal to the request time. displayName up to 80 characters.
+• Update by the owner, exactly one of:
+    1. Profile info: only displayName and photoURL change, status is active, displayName up to 80 characters.
+    2. Wizard progress: only onboardingStep changes, status is needs_profile, value 0 to 4.
+    3. Gate pass: status goes from needs_gate to needs_profile, only status and classId change, gate/{uid} exists with attempts 5 or fewer, the gate classId equals the new classId, and the three answers match (q1 is in the q1 list, q2 is in the q2 list, q3 is in the q3ByClass list for that classId).
+    4. Activation: status goes from needs_profile to active, only status changes, and after the write a students/{uid} document exists with ownerUid equal to the user and verified true (use the after-write existence check).
+• Update by admin: anything. Delete: admin only.
+gateConfig/questions: read by any signed-in user, write by admin.
+gateConfig/answers: read and write by admin only.
+gate/{uid}
+• Owner only, and the user status must be needs_gate.
+• Create: attempts equals 1, lastAttemptAt equals the request time, answers has exactly q1, q2 and q3 as strings up to 60 characters, classId is a string up to 30 characters.
+• Update: attempts equals the old attempts plus 1 and is 5 or fewer, lastAttemptAt equals the request time and is at least 10 minutes after the old value, same answer limits.
+• Admin may reset or delete.
+drafts/{uid}: owner only, status needs_profile, keys limited to step, data and updatedAt, size limits, updatedAt equal to the request time. The owner and admin may delete.
+classes
+• Read: a signed-in user may read documents whose status is active. Creators and admin can read their own pending ones. The class picker query must filter status equals active.
+• Write: admin only for now. Member-proposed classes are disabled until a later phase.
+students/{uid}
+• Read: active members of the same class (or admin).
+• Create: only as part of the activation batch. The new document must have verified true, ownerUid equal to the user, and classId equal to the user’s classId. The users record must have status needs_profile before the write and active after it. Keep all existing field limits and add an allowed-keys list plus a length limit for every field, including category, tags, quote and fun fact.
+• Update: owner or admin, with keys limited to the same allowed list. The owner cannot change ownerUid, classId or verified. Birthday and contact exist only when their show flags are true.
+• Delete: owner or admin.
+memories, superlatives, gallery
+• Read: active members of the same class (or admin).
+• Writes: as in the current rules, with the class-member check replaced by isActive plus inMyClass.
+teachers: read by active members of the same class. Create, update and delete by admin only.
+siteConfig/status: read by any signed-in user, write by admin. A read-only flag blocks all member writes.
+Catch-all: deny everything not listed.
+4.5 Activation batch (client)
+At the last wizard step, run one batched write with two operations in this order: create students/{uid} with verified true, then update users/{uid} to status active. If either fails, neither applies. After success, delete drafts/{uid}.
+4.6 App flow and screens
+Boot
+1. Show a neutral loading screen until the auth state is known. Do not render any nav tab or content yet.
+2. Signed out: landing page with the school name and logo, a short description and the Sign in with Google button. No tabs and no data queries.
+3. Signed in: load users/{uid} with retry. If it does not exist, create it with status needs_gate.
+4. Route by status:
+    ◦ needs_gate: Gate screen.
+    ◦ needs_profile: Onboarding wizard.
+    ◦ active: the app, with tabs visible.
+    ◦ revoked or banned: a plain notice screen and a Sign out button.
+5. Remember the link the person originally opened (for example #memories). After activation, send them there.
+Gate screen
+• Loads gateConfig/questions. If missing, show: Setup incomplete, please tell the admin.
+• Class picker: a list of active classes.
+• Three text fields with the questions. The page normalizes the answers and submits them.
+• Shows attempts left. After a failed check, show a countdown until the next allowed attempt. At 5 attempts, show the locked message with no hint about the answers.
+• Never show which answer was wrong.
+Onboarding wizard (4 steps)
+1. Basics: full name, roll number (digits only, up to 10), category.
+2. About you: bio, favorite subject, favorite quote, fun fact, tags.
+3. Privacy and look: avatar style (one of the 8 gradients), birthday (day and month only) with a show toggle, contact with a show toggle. Both toggles default to off.
+4. Review and submit.
+Rules for the wizard:
+• Required: name, roll number, category and bio. The same limits as the security rules.
+• Autosave: write the draft about 1 second after the last keystroke and on every step change. Also keep a local backup. On load, restore from the draft (the newest copy wins).
+• The person cannot reach any app screen until activation succeeds. Sign out is always available.
+• Back and Next move between steps. A progress bar shows the step.
+Navigation visibility
+• Nav tabs and the mobile menu render only for active users. The Admin tab renders only for confirmed admins.
+4.7 Minimal admin tools in Phase 1
+Until the full admin console exists, do these in the Firebase console:
+• Create gateConfig/questions and gateConfig/answers with the structure in 4.1.
+• Create admins/{your UID}, and give your own users record status active.
+• Reset a student: delete their gate/{uid} and set users.status back to needs_gate.
+• Revoke a student: set users.status to revoked.
+The page needs only one new admin screen in this phase: a Gate Questions editor (edit the question texts, the accepted answers and the per-class answers) that normalizes answers with the shared helper.
+4.8 Edge cases the code must handle
+• gateConfig missing or incomplete.
+• The user closes the tab mid-wizard and returns on another device.
+• Two tabs open: the second tab must react to status changes.
+• The user signs out during onboarding and signs back in: resume at the same step.
+• Clock differences: rely on server timestamps for attempt timing and show a generic wait message if the rule rejects an attempt.
+• An old-schema user with no status field: treat as needs_gate.
+• A banned user is blocked even if status is active.
+• Admin accounts must also have a users document with status active.
+4.9 Rules and flow test matrix
+Run each case in the Rules Playground and again in the live app with two Google accounts.
+Test
+Expected
+Signed-out read of any content
+Denied
+New user creates a users record with status active
+Denied
+needs_gate user reads memories
+Denied
+needs_profile user reads memories
+Denied
+Active user reads own class memories
+Allowed
+Active user reads another class’s memories
+Denied
+User sets own status to active directly
+Denied
+Gate pass with a wrong answer
+Denied
+Gate pass with correct answers but a different classId than in gate
+Denied
+Gate attempt that does not raise attempts by exactly 1
+Denied
+Sixth gate attempt
+Denied
+Second attempt within 10 minutes
+Denied
+Read gateConfig/answers as a normal user
+Denied
+Read another user’s gate or drafts document
+Denied
+Create students/{uid} outside the activation batch
+Denied
+Activate without creating the student profile
+Denied
+Student create with verified false
+Denied
+Owner changes own verified, ownerUid or classId
+Denied
+Birthday saved with showBirthday false
+Denied
+Teacher created by a normal member
+Denied
+Vote, change vote, remove vote
+Allowed
+Write another user’s vote or reaction key
+Denied
+Banned active user reads anything
+Denied
+Admin reads and writes everything
+Allowed
+Site set to read-only, member writes
+Denied
+#admin link as signed-out, member, admin
+Redirect, redirect, shown
+Close the tab at wizard step 2 and reopen
+Resumes at step 2 with data
+Toast appears and disappears
+About 3.5 seconds
+4.10 Order of work
+1. P0-1, P0-2, P0-8 and P0-9 (UI and safety fixes).
+2. P0-4, P0-5 and P0-6 (indexes, pagination, scoped listeners).
+3. P0-3 and P0-7 (rule fixes).
+4. Phase 1: data layer additions for gate, drafts and batched writes.
+5. Phase 1: rules rewrite (4.4), then publish it and run the matrix in the Rules Playground.
+6. Phase 1: boot flow and landing screen, then the Gate screen, then the wizard, then the activation batch.
+7. Phase 1: Gate Questions editor and the guarded admin route.
+8. Full test matrix, then a soft launch with one class.
+4.11 Definition of done
+• Every row of the test matrix passes.
+• No file is much over 300 lines, there are no inline styles and no secrets in the repo.
+• A new Google account cannot see any class data until it has passed the gate and completed its profile.
+• Closing the tab at any point in onboarding never loses progress.

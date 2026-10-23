@@ -14,6 +14,7 @@
 import { router } from './core/router/router.js';
 import { authService } from './core/auth/auth.js';
 import { store } from './core/store/store.js';
+import { showToast } from './components/toast/toast.js';
 import { initNavbar } from './components/navbar/navbar.js';
 import { initModal } from './components/modal/modal.js';
 
@@ -65,8 +66,17 @@ async function boot() {
   await authService.ready();
   router.onAuthReady();
 
-  document.getElementById('hero-browse-btn')
-    ?.addEventListener('click', () => router.navigate('students'));
+  document.getElementById('hero-browse-btn')?.addEventListener('click', async () => {
+    if (!authService.isAuthenticated()) {
+      showToast('Please sign in with Google to browse the class.', 'info');
+      try {
+        await authService.signInWithGoogle();
+      } catch {}
+    } else {
+      router.navigate('class');
+    }
+  });
+
   document.getElementById('hero-about-btn')
     ?.addEventListener('click', () => router.navigate('school'));
 

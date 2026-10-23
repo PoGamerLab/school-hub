@@ -22,7 +22,7 @@ export function renderStudentCard(student) {
   `;
 }
 
-export function renderProfileView(student) {
+export function renderProfileView(student, currentUid = null) {
   const profileContainer = document.querySelector('#profile .profile');
   const profileTag = document.getElementById('profile-roll-tag');
 
@@ -33,12 +33,14 @@ export function renderProfileView(student) {
         <div class="empty-state full-width-empty">
           <div class="empty-state-icon">👤</div>
           <div class="empty-state-title">No Student Profile Selected</div>
-          <div class="empty-state-desc">Classmate profiles will appear here once added. Click "+ Add my profile" in the Students tab to create yours!</div>
+          <div class="empty-state-desc">Classmate profiles will appear here once added through the onboarding wizard.</div>
         </div>
       `;
     }
     return;
   }
+
+  const isOwner = currentUid && (student.id === currentUid || student.ownerUid === currentUid);
 
   if (profileTag) profileTag.textContent = `ROLL ${escapeHtml(student.roll)}`;
 
@@ -61,8 +63,15 @@ export function renderProfileView(student) {
         </div>
       </div>
       <div class="profile-main">
-        <div class="pname display">${escapeHtml(student.name)}</div>
-        <div class="prole">${escapeHtml(student.role || `GRADE 10 · SECTION B · ROLL NO. ${student.roll}`)}</div>
+        <div class="profile-title-bar">
+          <div class="pname display">${escapeHtml(student.name)}</div>
+          ${isOwner ? `
+            <button class="btn btn-sm btn-outline" id="edit-my-profile-btn">
+              ✏️ Edit Profile
+            </button>
+          ` : ''}
+        </div>
+        <div class="prole">${escapeHtml(student.role || `ROLL NO. ${student.roll}`)}</div>
         <p class="pbio">${escapeHtml(student.bio)}</p>
         <div class="field-grid">
           <div class="field"><div class="flabel">Favourite subject</div><div class="fval">${escapeHtml(student.favSubject || '—')}</div></div>

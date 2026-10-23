@@ -1,5 +1,6 @@
 import { store } from '../../core/store/store.js';
 import { authService } from '../../core/auth/auth.js';
+import { router } from '../../core/router/router.js';
 import { showToast } from '../toast/toast.js';
 import { escapeHtml } from '../../core/utils/escapeHtml.js';
 
@@ -43,6 +44,27 @@ export function initNavbar() {
     });
   }
 
+  // Close dropdown menu on outside click or escape
+  document.addEventListener('click', (e) => {
+    const dropdownMenu = document.getElementById('nav-user-dropdown-menu');
+    const dropdownBtn = document.getElementById('nav-user-dropdown-btn');
+    if (dropdownMenu?.classList.contains('open') && !dropdownMenu.contains(e.target) && !dropdownBtn?.contains(e.target)) {
+      dropdownMenu.classList.remove('open');
+      dropdownBtn?.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const dropdownMenu = document.getElementById('nav-user-dropdown-menu');
+      const dropdownBtn = document.getElementById('nav-user-dropdown-btn');
+      if (dropdownMenu?.classList.contains('open')) {
+        dropdownMenu.classList.remove('open');
+        dropdownBtn?.setAttribute('aria-expanded', 'false');
+      }
+    }
+  });
+
   function updateNavVisibility(user) {
     const isActiveUser = !!(user && user.status === 'active');
     const navlinks = document.querySelector('.navlinks');
@@ -65,14 +87,39 @@ export function initNavbar() {
         : `<div class="auth-avatar">${escapeHtml(user.displayName?.[0] || 'U')}</div>`;
 
       container.innerHTML = `
-        <div class="auth-user">
-          ${avatarHtml}
-          <span class="auth-name" title="${escapeHtml(user.displayName)}">${escapeHtml(user.displayName)}</span>
-          <button class="auth-signout" id="nav-signout-btn" title="Sign out">✕</button>
+        <div class="auth-dropdown-wrapper">
+          <button class="auth-user-btn" id="nav-user-dropdown-btn" aria-haspopup="true" aria-expanded="false" title="Account Menu">
+            ${avatarHtml}
+            <span class="auth-name" title="${escapeHtml(user.displayName)}">${escapeHtml(user.displayName)}</span>
+            <span class="dropdown-caret">▾</span>
+          </button>
+          <div class="auth-dropdown-menu" id="nav-user-dropdown-menu">
+            <button class="auth-dropdown-item" id="nav-profile-item-btn">
+              <span>👤</span> My Profile
+            </button>
+            <button class="auth-dropdown-item danger" id="nav-signout-item-btn">
+              <span>🚪</span> Sign Out
+            </button>
+          </div>
         </div>
       `;
 
-      document.getElementById('nav-signout-btn')?.addEventListener('click', async () => {
+      const dropdownBtn = document.getElementById('nav-user-dropdown-btn');
+      const dropdownMenu = document.getElementById('nav-user-dropdown-menu');
+
+      dropdownBtn?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = dropdownMenu?.classList.toggle('open');
+        dropdownBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+      });
+
+      document.getElementById('nav-profile-item-btn')?.addEventListener('click', () => {
+        dropdownMenu?.classList.remove('open');
+        router.navigate('profile');
+      });
+
+      document.getElementById('nav-signout-item-btn')?.addEventListener('click', async () => {
+        dropdownMenu?.classList.remove('open');
         await authService.signOut();
         showToast('Signed out successfully.');
       });

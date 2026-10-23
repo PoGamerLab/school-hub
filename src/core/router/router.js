@@ -11,10 +11,10 @@ const SCREEN_ACCESS = {
   gate:         'public',
   onboarding:   'public',
   revoked:      'public',
+  school:       'public',
   class:        'member',
   students:     'member',
   profile:      'member',
-  school:       'member',
   superlatives: 'member',
   memories:     'member',
   admin:        'admin'
@@ -117,9 +117,22 @@ class Router {
 
   _resolveStatusRoute(screenId) {
     const user = store.get('user');
+    const isAdmin = store.get('isAdmin');
+
     if (!user) {
-      // Signed out: only home landing page
+      // Signed out: public screens are allowed, otherwise landing page
+      if (SCREEN_ACCESS[screenId] === 'public') {
+        return screenId;
+      }
       return 'home';
+    }
+
+    if (isAdmin) {
+      // Admin bypasses gate, onboarding and revoked completely
+      if (screenId === 'gate' || screenId === 'onboarding' || screenId === 'revoked') {
+        return this._intendedDestination || 'home';
+      }
+      return screenId;
     }
 
     if (user.banned || user.status === 'revoked') {

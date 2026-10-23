@@ -25,36 +25,55 @@ export function initClasses() {
     const user = authService.getCurrentUser();
     const isMember = user && user.classId === store.get('currentClassId');
     container.innerHTML = renderClassBanner(classInfo, isMember);
+
+    const proposeBtn = document.getElementById('open-propose-class-btn');
+    const modalTitle = document.querySelector('#propose-class-modal .modal-header h3');
+    const submitBtn = proposeForm?.querySelector('button[type="submit"]');
+    if (store.get('isAdmin')) {
+      if (proposeBtn) proposeBtn.textContent = '+ Create Class';
+      if (modalTitle) modalTitle.textContent = 'Create an Active Class';
+      if (submitBtn) submitBtn.textContent = 'Create Class';
+    }
   }
 
-  // Propose Class
+  // Propose or Direct Create Class
   if (proposeForm) {
     proposeForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const user = authService.getCurrentUser();
       if (!user) {
-        showToast('Please sign in to propose a class.', 'error');
+        showToast('Please sign in to create or propose a class.', 'error');
         return;
       }
       const name    = document.getElementById('propose-class-name').value.trim();
       const grade   = document.getElementById('propose-class-grade').value.trim();
       const section = document.getElementById('propose-class-section').value.trim();
+      const isAdmin = store.get('isAdmin');
+      const slug    = (name + '-' + section).toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, 30);
+      const targetId = isAdmin ? (slug || user.uid) : user.uid;
+      const status  = isAdmin ? 'active' : 'pending';
 
       try {
         await createDocument('classes', {
           name,
           grade,
           section,
-          status: 'pending',
+          status,
           createdBy: user.uid,
           supporterUids: [user.uid]
-        }, user.uid);
+        }, targetId);
         proposeForm.reset();
         proposeModal?.classList.remove('active');
-        showToast('Class proposed! Get 4 more classmates to support it.', 'success');
+        if (isAdmin) {
+          showToast(`Class "${name}" created and activated!`, 'success');
+          store.set('currentClassId', targetId);
+          store.set('classInfo', { id: targetId, name, grade, section, status: 'active' });
+        } else {
+          showToast('Class proposed! Get 4 more classmates to support it.', 'success');
+        }
       } catch (err) {
-        console.error('Failed to propose class:', err);
-        showToast(`Proposal error: ${err.message}`, 'error');
+        console.error('Failed to create/propose class:', err);
+        showToast(`Error: ${err.message}`, 'error');
       }
     });
   }
