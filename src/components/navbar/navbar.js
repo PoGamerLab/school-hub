@@ -153,7 +153,13 @@ export function initNavbar() {
 
       document.getElementById('nav-profile-item-btn')?.addEventListener('click', () => {
         dropdownMenu?.classList.remove('open');
-        router.navigate('profile');
+        // Navigate to own profile by UID so it always shows the correct person
+        const currentUser = authService.getCurrentUser();
+        if (currentUser) {
+          router.navigate('profile', { id: currentUser.uid });
+        } else {
+          router.navigate('profile');
+        }
       });
 
       document.getElementById('nav-signout-item-btn')?.addEventListener('click', async () => {

@@ -42,6 +42,54 @@
   border-bottom: 1px solid rgba(0, 0, 0, 0.2);
 }
 
+/* Site-level admin announcement & read-only banners */
+.site-announcement {
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  background: var(--pine);
+  color: var(--paper);
+  border-bottom: 2px solid var(--emerald);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  line-height: 1.4;
+  z-index: 1001;
+  position: relative;
+}
+
+.site-readonly {
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  background: #7a4a00;
+  color: #ffe0a0;
+  border-bottom: 2px solid var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  line-height: 1.4;
+  z-index: 1001;
+  position: relative;
+}
+
+.site-announcement.hidden,
+.site-readonly.hidden {
+  display: none !important;
+}
+
+.banner-action-btn {
+  flex-shrink: 0;
+  font-size: 11px;
+  padding: 4px 10px;
+  border-color: rgba(255, 255, 255, 0.5) !important;
+  color: inherit !important;
+}
+
 .hidden-admin {
   display: none !important;
 }
