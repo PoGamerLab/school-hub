@@ -33,6 +33,11 @@
   transition: width 0.3s ease;
 }
 
+.wizard-progress-fill.step-0 { width: 0%; }
+.wizard-progress-fill.step-1 { width: 33.33%; }
+.wizard-progress-fill.step-2 { width: 66.66%; }
+.wizard-progress-fill.step-3 { width: 100%; }
+
 .wizard-step-node {
   position: relative;
   z-index: 2;

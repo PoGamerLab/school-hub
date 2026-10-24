@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- HELPER FUNCTIONS (Phase 1, section 4.4) ---
+    // --- HELPER FUNCTIONS ---
     function isSignedIn() {
       return request.auth != null && request.auth.token.firebase.sign_in_provider == 'google.com';
     }
@@ -11,12 +11,9 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == uid;
     }
 
+    // Phase A: Admin identity exists solely as an admins/{uid} document
     function isAdmin() {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        request.auth.uid in ['09GmmAuEGmdSHL6X9Z9BgGGenfW2', 'Ox86p08MIYcdvMWCMTFNYXFJeXC2'] ||
-        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
-      );
+      return isSignedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid));
     }
 
     function getUser() {
@@ -27,8 +24,9 @@ service cloud.firestore {
       return isAdmin() || (isSignedIn() && getUser().status == 'active' && (!('banned' in getUser()) || getUser().banned == false));
     }
 
+    // Phase B1: Class isolation helper - strictly requires non-empty classId
     function inMyClass(classId) {
-      return isAdmin() || (isSignedIn() && (getUser().classId == classId || classId == ''));
+      return isAdmin() || (isSignedIn() && classId is string && classId != '' && getUser().classId == classId);
     }
 
     function siteWritable() {
@@ -37,16 +35,27 @@ service cloud.firestore {
              isAdmin();
     }
 
-    // --- 1. siteConfig (Public read, admin write) ---
+    // Phase B8: Small fixed report structure helper
+    function isValidReportMap(rMap) {
+      return rMap.diff(resource.data.reports).affectedKeys().hasOnly([request.auth.uid]) &&
+        (!rMap.keys().hasAny([request.auth.uid]) || (
+          rMap[request.auth.uid].keys().hasOnly(['reason', 'details', 'createdAt']) &&
+          rMap[request.auth.uid].reason in ['inappropriate', 'harassment', 'spam', 'other'] &&
+          rMap[request.auth.uid].details is string && rMap[request.auth.uid].details.size() <= 200 &&
+          rMap[request.auth.uid].createdAt == request.time
+        ));
+    }
+
+    // --- 1. siteConfig (Signed-in read, admin write) ---
     match /siteConfig/{docId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // --- 2. admins/{uid} (Console or recognized admin writes) ---
+    // --- 2. admins/{uid} (No client writes at all; read by owner or admin) ---
     match /admins/{uid} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && (isAdmin() || request.auth.uid == uid);
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if false;
     }
 
     // --- 3. users/{uid} (Owner or admin read, state machine updates) ---
@@ -56,6 +65,7 @@ service cloud.firestore {
       allow create: if isOwner(uid) && siteWritable() &&
         request.resource.data.keys().hasOnly(['displayName', 'photoURL', 'classId', 'role', 'points', 'banned', 'createdAt', 'status', 'onboardingStep']) &&
         request.resource.data.displayName is string && request.resource.data.displayName.size() <= 80 &&
+        request.resource.data.photoURL is string && (request.resource.data.photoURL == '' || (request.resource.data.photoURL.size() <= 300 && request.resource.data.photoURL.matches('^https://lh3\\.googleusercontent\\.com/.*'))) &&
         request.resource.data.status == 'needs_gate' &&
         request.resource.data.classId == '' &&
         request.resource.data.role == 'member' &&
@@ -66,10 +76,11 @@ service cloud.firestore {
 
       allow update: if isAdmin() || (
         isOwner(uid) && (!('banned' in resource.data) || resource.data.banned == false) && siteWritable() && (
-          // 1. Profile info
+          // 1. Profile info (Phase B5: strictly bounded Google LH3 photo URL or empty)
           (resource.data.status == 'active' &&
            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['displayName', 'photoURL']) &&
-           request.resource.data.displayName is string && request.resource.data.displayName.size() <= 80) ||
+           request.resource.data.displayName is string && request.resource.data.displayName.size() <= 80 &&
+           request.resource.data.photoURL is string && (request.resource.data.photoURL == '' || (request.resource.data.photoURL.size() <= 300 && request.resource.data.photoURL.matches('^https://lh3\\.googleusercontent\\.com/.*')))) ||
           // 2. Wizard progress
           (resource.data.status == 'needs_profile' &&
            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['onboardingStep']) &&
@@ -142,42 +153,90 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    // --- 6. drafts/{uid} (Owner only, needs_profile status only) ---
+    // --- 6. drafts/{uid} (Owner only, bounded wizard fields) ---
     match /drafts/{uid} {
       allow read: if isOwner(uid) || isAdmin();
       allow create, update: if isOwner(uid) && getUser().status == 'needs_profile' && siteWritable() &&
         request.resource.data.keys().hasOnly(['step', 'data', 'updatedAt']) &&
         request.resource.data.step is int && request.resource.data.step >= 0 && request.resource.data.step <= 4 &&
-        request.resource.data.updatedAt == request.time;
+        request.resource.data.updatedAt == request.time &&
+        request.resource.data.data is map &&
+        request.resource.data.data.keys().hasOnly(['name', 'house', 'group', 'category', 'bio', 'favSubject', 'favQuote', 'funFact', 'tags', 'birthday', 'showBirthday', 'contact', 'showContact', 'showInDirectory', 'gradientIndex']) &&
+        (!('name' in request.resource.data.data) || (request.resource.data.data.name is string && request.resource.data.data.name.size() <= 100)) &&
+        (!('bio' in request.resource.data.data) || (request.resource.data.data.bio is string && request.resource.data.data.bio.size() <= 500)) &&
+        (!('favQuote' in request.resource.data.data) || (request.resource.data.data.favQuote is string && request.resource.data.data.favQuote.size() <= 200)) &&
+        (!('funFact' in request.resource.data.data) || (request.resource.data.data.funFact is string && request.resource.data.data.funFact.size() <= 200)) &&
+        (!('tags' in request.resource.data.data) || (request.resource.data.data.tags is string && request.resource.data.data.tags.size() <= 100));
       allow delete: if isOwner(uid) || isAdmin();
     }
 
-    // --- 7. classes/{classId} (Active readable, admin write) ---
+    // --- 7. classes/{classId} (Signed-in read, admin write) ---
     match /classes/{classId} {
-      allow read: if resource.data.status == 'active' || (isSignedIn() && (resource.data.createdBy == request.auth.uid || isAdmin()));
+      allow read: if isSignedIn();
       allow write: if isAdmin();
 
+      // Phase C7: Class Announcements
       match /announcements/{annId} {
         allow read: if isActive() && inMyClass(classId);
         allow create: if isActive() && inMyClass(classId) && siteWritable() &&
+          request.resource.data.keys().hasOnly(['title', 'body', 'authorUid', 'authorName', 'pinned', 'createdAt']) &&
+          request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 100 &&
+          request.resource.data.body is string && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 1000 &&
+          request.resource.data.authorUid == request.auth.uid &&
+          (!('pinned' in request.resource.data) || request.resource.data.pinned is bool) &&
+          request.resource.data.createdAt == request.time &&
           (isAdmin() || (exists(/databases/$(database)/documents/classes/$(classId)) && get(/databases/$(database)/documents/classes/$(classId)).data.monitorUid == request.auth.uid));
         allow update: if isAdmin();
         allow delete: if isAdmin() || (isActive() && resource.data.authorUid == request.auth.uid);
       }
     }
 
-    // --- 7b. classChats/{classId}/messages/{msgId} (Members-only class chat) ---
+    // --- 7b. chatState/{uid} (Rate limit tracking doc: 1 write per message) ---
+    match /chatState/{uid} {
+      allow read: if isOwner(uid) || isAdmin();
+      allow write: if isOwner(uid) &&
+        request.resource.data.keys().hasOnly(['lastMessageAt']) &&
+        request.resource.data.lastMessageAt == request.time;
+    }
+
+    // --- 7c. classChats/{classId}/messages/{msgId} (Phase C: Rate-limited, safe class chat) ---
     match /classChats/{classId}/messages/{msgId} {
       allow read: if isActive() && inMyClass(classId);
       allow create: if isActive() && inMyClass(classId) && siteWritable() &&
+        request.resource.data.keys().hasOnly(['authorUid', 'authorName', 'classId', 'text', 'reports', 'createdAt']) &&
         request.resource.data.authorUid == request.auth.uid &&
+        request.resource.data.authorName == get(/databases/$(database)/documents/students/$(request.auth.uid)).data.name &&
         request.resource.data.classId == classId &&
         request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500 &&
-        request.resource.data.createdAt == request.time;
+        request.resource.data.reports == {} &&
+        request.resource.data.createdAt == request.time &&
+        (!('mutedUntil' in getUser()) || request.time >= getUser().mutedUntil) &&
+        existsAfter(/databases/$(database)/documents/chatState/$(request.auth.uid)) &&
+        getAfter(/databases/$(database)/documents/chatState/$(request.auth.uid)).data.lastMessageAt == request.time &&
+        (!exists(/databases/$(database)/documents/chatState/$(request.auth.uid)) ||
+         request.time >= get(/databases/$(database)/documents/chatState/$(request.auth.uid)).data.lastMessageAt + duration.value(5, 's'));
+      allow update: if isActive() && inMyClass(classId) && siteWritable() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reports']) &&
+        isValidReportMap(request.resource.data.reports);
       allow delete: if isAdmin() || (isActive() && resource.data.authorUid == request.auth.uid);
     }
 
-    // --- 8. students/{uid} (Activation batch creation or Admin creation) ---
+    // --- 8. avatars/{uid} (Phase D: Compressed 256x256 JPEG profile picture) ---
+    match /avatars/{uid} {
+      allow read: if isActive();
+      allow create, update: if isOwner(uid) && isActive() && siteWritable() &&
+        request.resource.data.keys().hasOnly(['photo', 'ownerUid', 'updatedAt']) &&
+        request.resource.data.ownerUid == uid &&
+        request.resource.data.photo is string &&
+        request.resource.data.photo.size() <= 40000 &&
+        request.resource.data.photo.matches('^data:image/jpeg;base64,.*') &&
+        request.resource.data.updatedAt == request.time &&
+        (!exists(/databases/$(database)/documents/avatars/$(uid)) ||
+         request.time >= resource.data.updatedAt + duration.value(1, 'h'));
+      allow delete: if isOwner(uid) || isAdmin();
+    }
+
+    // --- 9. students/{uid} (Whole-school active read, strictly validated profile data) ---
     match /students/{uid} {
       allow read: if isActive();
 
@@ -191,10 +250,14 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'name', 'roll', 'category', 'tags', 'bio', 'favSubject', 'favQuote', 'funFact',
           'gradientIndex', 'initials', 'classId', 'ownerUid', 'showBirthday', 'showContact',
-          'birthday', 'contact', 'verified', 'house', 'group', 'showInDirectory', 'createdAt'
+          'birthday', 'contact', 'verified', 'house', 'group', 'showInDirectory', 'createdAt',
+          'photoSource', 'photoThumb', 'googlePhotoUrl', 'photoReports', 'photoUpdatedAt'
         ]) &&
         request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
-        (!('roll' in request.resource.data) || (request.resource.data.roll is string && request.resource.data.roll.size() <= 10)) &&
+        (!('roll' in request.resource.data) || (request.resource.data.roll is string && request.resource.data.roll.matches('^[0-9]{1,10}$'))) &&
+        request.resource.data.house in ['Unity', 'Faith', 'Discipline', 'Tolerance'] &&
+        request.resource.data.group in ['Pre-Medical', 'Pre-Engineering', 'Computer Science', 'Humanities'] &&
+        request.resource.data.category in ['Sports', 'Academics', 'Arts', 'Leadership', 'Tech', 'Music'] &&
         request.resource.data.tags is string && request.resource.data.tags.size() <= 100 &&
         request.resource.data.bio is string && request.resource.data.bio.size() <= 500 &&
         request.resource.data.favSubject is string && request.resource.data.favSubject.size() <= 60 &&
@@ -207,27 +270,88 @@ service cloud.firestore {
         (!('showInDirectory' in request.resource.data) || request.resource.data.showInDirectory is bool) &&
         (!('birthday' in request.resource.data) || (request.resource.data.showBirthday == true && request.resource.data.birthday is string && request.resource.data.birthday.size() <= 30)) &&
         (!('contact' in request.resource.data) || (request.resource.data.showContact == true && request.resource.data.contact is string && request.resource.data.contact.size() <= 60)) &&
+        (!('photoSource' in request.resource.data) || request.resource.data.photoSource in ['none', 'upload', 'google']) &&
+        (!('photoThumb' in request.resource.data) || (
+          request.resource.data.photoSource == 'upload' &&
+          request.resource.data.photoThumb is string &&
+          request.resource.data.photoThumb.size() <= 8000 &&
+          request.resource.data.photoThumb.matches('^data:image/jpeg;base64,.*') &&
+          existsAfter(/databases/$(database)/documents/avatars/$(uid))
+        )) &&
+        (!('googlePhotoUrl' in request.resource.data) || (
+          request.resource.data.photoSource == 'google' &&
+          request.resource.data.googlePhotoUrl is string &&
+          request.resource.data.googlePhotoUrl.size() <= 300 &&
+          request.resource.data.googlePhotoUrl.matches('^https://lh3\\.googleusercontent\\.com/.*')
+        )) &&
+        (!('photoReports' in request.resource.data) || request.resource.data.photoReports is map) &&
         request.resource.data.createdAt == request.time
       );
 
-      allow update: if (resource.data.ownerUid == request.auth.uid || isAdmin()) && isActive() && siteWritable() &&
-        request.resource.data.ownerUid == resource.data.ownerUid &&
-        request.resource.data.classId == resource.data.classId &&
-        request.resource.data.keys().hasOnly([
-          'name', 'roll', 'category', 'tags', 'bio', 'favSubject', 'favQuote', 'funFact',
-          'gradientIndex', 'initials', 'classId', 'ownerUid', 'showBirthday', 'showContact',
-          'birthday', 'contact', 'verified', 'house', 'group', 'showInDirectory', 'createdAt'
-        ]) &&
-        request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
-        request.resource.data.bio is string && request.resource.data.bio.size() <= 500 &&
-        (!('showInDirectory' in request.resource.data) || request.resource.data.showInDirectory is bool) &&
-        (!('birthday' in request.resource.data) || (request.resource.data.showBirthday == true && request.resource.data.birthday is string && request.resource.data.birthday.size() <= 30)) &&
-        (!('contact' in request.resource.data) || (request.resource.data.showContact == true && request.resource.data.contact is string && request.resource.data.contact.size() <= 60));
+      allow update: if siteWritable() && isActive() && (
+        // Admin update
+        isAdmin() ||
+        // Owner update (cannot tamper with verified, classId, ownerUid)
+        (
+          resource.data.ownerUid == request.auth.uid &&
+          request.resource.data.ownerUid == resource.data.ownerUid &&
+          request.resource.data.classId == resource.data.classId &&
+          request.resource.data.verified == resource.data.verified &&
+          request.resource.data.keys().hasOnly([
+            'name', 'roll', 'category', 'tags', 'bio', 'favSubject', 'favQuote', 'funFact',
+            'gradientIndex', 'initials', 'classId', 'ownerUid', 'showBirthday', 'showContact',
+            'birthday', 'contact', 'verified', 'house', 'group', 'showInDirectory', 'createdAt',
+            'photoSource', 'photoThumb', 'googlePhotoUrl', 'photoReports', 'photoUpdatedAt'
+          ]) &&
+          request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
+          (!('roll' in request.resource.data) || (request.resource.data.roll is string && request.resource.data.roll.matches('^[0-9]{1,10}$'))) &&
+          request.resource.data.house in ['Unity', 'Faith', 'Discipline', 'Tolerance'] &&
+          request.resource.data.group in ['Pre-Medical', 'Pre-Engineering', 'Computer Science', 'Humanities'] &&
+          request.resource.data.category in ['Sports', 'Academics', 'Arts', 'Leadership', 'Tech', 'Music'] &&
+          request.resource.data.tags is string && request.resource.data.tags.size() <= 100 &&
+          request.resource.data.bio is string && request.resource.data.bio.size() <= 500 &&
+          request.resource.data.favSubject is string && request.resource.data.favSubject.size() <= 60 &&
+          request.resource.data.favQuote is string && request.resource.data.favQuote.size() <= 200 &&
+          request.resource.data.funFact is string && request.resource.data.funFact.size() <= 200 &&
+          request.resource.data.gradientIndex is int && request.resource.data.gradientIndex >= 0 && request.resource.data.gradientIndex <= 7 &&
+          request.resource.data.initials is string && request.resource.data.initials.size() <= 4 &&
+          request.resource.data.showBirthday is bool &&
+          request.resource.data.showContact is bool &&
+          (!('showInDirectory' in request.resource.data) || request.resource.data.showInDirectory is bool) &&
+          (!('birthday' in request.resource.data) || (request.resource.data.showBirthday == true && request.resource.data.birthday is string && request.resource.data.birthday.size() <= 30)) &&
+          (!('contact' in request.resource.data) || (request.resource.data.showContact == true && request.resource.data.contact is string && request.resource.data.contact.size() <= 60)) &&
+          (!('photoSource' in request.resource.data) || request.resource.data.photoSource in ['none', 'upload', 'google']) &&
+          (!('photoThumb' in request.resource.data) || (
+            request.resource.data.photoSource == 'upload' &&
+            request.resource.data.photoThumb is string &&
+            request.resource.data.photoThumb.size() <= 8000 &&
+            request.resource.data.photoThumb.matches('^data:image/jpeg;base64,.*') &&
+            existsAfter(/databases/$(database)/documents/avatars/$(uid))
+          )) &&
+          (!('googlePhotoUrl' in request.resource.data) || (
+            request.resource.data.photoSource == 'google' &&
+            request.resource.data.googlePhotoUrl is string &&
+            request.resource.data.googlePhotoUrl.size() <= 300 &&
+            request.resource.data.googlePhotoUrl.matches('^https://lh3\\.googleusercontent\\.com/.*')
+          ))
+        ) ||
+        // Member photo reporting
+        (
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoReports']) &&
+          request.resource.data.photoReports.diff(resource.data.photoReports).affectedKeys().hasOnly([request.auth.uid]) &&
+          (!request.resource.data.photoReports.keys().hasAny([request.auth.uid]) || (
+            request.resource.data.photoReports[request.auth.uid].keys().hasOnly(['reason', 'details', 'createdAt']) &&
+            request.resource.data.photoReports[request.auth.uid].reason in ['inappropriate', 'harassment', 'spam', 'other'] &&
+            request.resource.data.photoReports[request.auth.uid].details is string && request.resource.data.photoReports[request.auth.uid].details.size() <= 200 &&
+            request.resource.data.photoReports[request.auth.uid].createdAt == request.time
+          ))
+        )
+      );
 
       allow delete: if resource.data.ownerUid == request.auth.uid || isAdmin();
     }
 
-    // --- 9. memories/{id} (Members of same class read/write) ---
+    // --- 10. memories/{id} (Class-isolated, report-bounded) ---
     match /memories/{id} {
       allow read: if isActive() && inMyClass(resource.data.classId);
 
@@ -249,21 +373,21 @@ service cloud.firestore {
            request.resource.data.quote is string && request.resource.data.quote.size() > 0 && request.resource.data.quote.size() <= 300 &&
            request.resource.data.author is string && request.resource.data.author.size() <= 80 &&
            request.resource.data.context is string && request.resource.data.context.size() <= 120) ||
-          // B: React (P0-7: check removal first)
+          // B: React
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']) &&
            request.resource.data.reactions.diff(resource.data.reactions).affectedKeys().hasOnly([request.auth.uid]) &&
            (!request.resource.data.reactions.keys().hasAny([request.auth.uid]) ||
             request.resource.data.reactions[request.auth.uid] in ['laugh', 'heart', 'fire'])) ||
-          // C: Report (with reason and details)
+          // C: Report
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reports']) &&
-           request.resource.data.reports.diff(resource.data.reports).affectedKeys().hasOnly([request.auth.uid]))
+           isValidReportMap(request.resource.data.reports))
         )
       );
 
       allow delete: if resource.data.authorUid == request.auth.uid || isAdmin();
     }
 
-    // --- 10. superlatives/{id} ---
+    // --- 11. superlatives/{id} ---
     match /superlatives/{id} {
       allow read: if isActive() && inMyClass(resource.data.classId);
 
@@ -284,33 +408,35 @@ service cloud.firestore {
            (!request.resource.data.votes.keys().hasAny([request.auth.uid]) ||
             resource.data.nominees.hasAny([request.resource.data.votes[request.auth.uid]]))) ||
           (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reports']) &&
-           request.resource.data.reports.diff(resource.data.reports).affectedKeys().hasOnly([request.auth.uid]))
+           isValidReportMap(request.resource.data.reports))
         )
       );
 
       allow delete: if resource.data.createdBy == request.auth.uid || isAdmin();
     }
 
-    // --- 11. teachers/{id} (Public faculty directory read, admin write) ---
+    // --- 12. teachers/{id} (Active members only read, admin write) ---
     match /teachers/{id} {
-      allow read: if true;
+      allow read: if isActive();
       allow create: if isAdmin() &&
         request.resource.data.keys().hasOnly(['classId', 'ownerUid', 'name', 'subject', 'room', 'qualification', 'img', 'initials', 'createdAt']) &&
         request.resource.data.name is string && request.resource.data.name.size() <= 80 &&
         request.resource.data.subject is string && request.resource.data.subject.size() <= 80 &&
         request.resource.data.room is string && request.resource.data.room.size() <= 50 &&
         request.resource.data.qualification is string && request.resource.data.qualification.size() <= 100 &&
+        (!('img' in request.resource.data) || request.resource.data.img == '' || (request.resource.data.img is string && request.resource.data.img.size() <= 300 && request.resource.data.img.matches('^https://.+'))) &&
         request.resource.data.createdAt == request.time;
       allow update: if isAdmin();
       allow delete: if isAdmin();
     }
 
-    // --- 12. gallery/{id} (Campus gallery public read, active members create) ---
+    // --- 13. gallery/{id} (Active members only read, classId required) ---
     match /gallery/{id} {
-      allow read: if true;
+      allow read: if isActive();
       allow create: if isActive() && siteWritable() &&
         request.resource.data.keys().hasOnly(['classId', 'ownerUid', 'caption', 'url', 'createdAt']) &&
         request.resource.data.ownerUid == request.auth.uid &&
+        request.resource.data.classId is string && request.resource.data.classId != '' &&
         request.resource.data.caption is string && request.resource.data.caption.size() <= 140 &&
         request.resource.data.url is string && request.resource.data.url.size() <= 500 &&
         request.resource.data.url.matches('^https://.+') &&
@@ -319,9 +445,13 @@ service cloud.firestore {
       allow delete: if resource.data.ownerUid == request.auth.uid || isAdmin();
     }
 
-    // --- 13. adminLog/{id} (Admin action audit trail) ---
+    // --- 14. adminLog/{id} (Immutable audit log: create & read by admin only) ---
     match /adminLog/{id} {
-      allow read, write: if isAdmin();
+      allow read: if isAdmin();
+      allow create: if isAdmin() &&
+        request.resource.data.actorUid == request.auth.uid &&
+        request.resource.data.createdAt == request.time;
+      allow update, delete: if false;
     }
 
     // Default deny

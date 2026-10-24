@@ -54,12 +54,12 @@ export function openProfileModal(existingProfile = null) {
     if (showDirEl) showDirEl.checked = existingProfile.showInDirectory !== false;
   } else {
     if (nameEl) nameEl.value = user.displayName || '';
-    if (houseEl) houseEl.value = 'Unity';
-    if (groupEl) groupEl.value = 'Pre-Medical';
-    if (catEl) catEl.value = 'Sports';
-    if (tagsEl) tagsEl.value = 'Cricket';
+    if (houseEl) houseEl.value = '';
+    if (groupEl) groupEl.value = '';
+    if (catEl) catEl.value = '';
+    if (tagsEl) tagsEl.value = '';
     if (bioEl) bioEl.value = '';
-    if (subjEl) subjEl.value = 'Computer Science';
+    if (subjEl) subjEl.value = '';
     if (bdayDayEl) bdayDayEl.value = '';
     if (bdayMonthEl) bdayMonthEl.value = '';
     if (quoteEl) quoteEl.value = '';
@@ -89,12 +89,12 @@ export function initProfileForm() {
     }
 
     const name = document.getElementById('student-name').value.trim();
-    const house = document.getElementById('student-house')?.value || 'Unity';
-    const group = document.getElementById('student-group')?.value || 'Pre-Medical';
-    const category = document.getElementById('student-category')?.value || 'Sports';
-    const tags = document.getElementById('student-tags')?.value || 'Cricket';
+    const house = document.getElementById('student-house')?.value || '';
+    const group = document.getElementById('student-group')?.value || '';
+    const category = document.getElementById('student-category')?.value || '';
+    const tags = document.getElementById('student-tags')?.value || '';
     const bio = document.getElementById('student-bio').value.trim();
-    const favSubject = document.getElementById('student-subject')?.value || 'Computer Science';
+    const favSubject = document.getElementById('student-subject')?.value || '';
     const bdayMonth = document.getElementById('student-bday-month')?.value || '';
     const bdayDay = document.getElementById('student-bday-day')?.value || '';
     const birthday = (bdayMonth && bdayDay) ? `${bdayDay} ${bdayMonth}` : '';
@@ -106,8 +106,16 @@ export function initProfileForm() {
     const showDirEl = document.getElementById('student-show-directory');
     const showInDirectory = showDirEl ? !!showDirEl.checked : true;
 
-    if (!name || name.length < 3 || !/^[a-zA-Z\s\.\-]{3,60}$/.test(name)) {
-      showToast('Please enter a valid full name (at least 3 letters, no numbers or special symbols).', 'error');
+    // Unicode/Urdu/Apostrophe name check (M1, E2)
+    const NAME_REGEX = /^[\p{L}\p{M}\s.'-]{3,60}$/u;
+    if (!name || name.length < 3 || !NAME_REGEX.test(name)) {
+      showToast('Please enter a valid full name (3-60 characters, letters from any language, apostrophes or dots).', 'error');
+      return;
+    }
+
+    // No silent defaults check (M2, E3)
+    if (!house || !group || !category || !favSubject || !tags) {
+      showToast('Please select your House, Academic Group, Special Interest, Subject, and Main Hobby.', 'error');
       return;
     }
     if (!bio || bio.length < 15) {

@@ -28,6 +28,11 @@ export function initGallery() {
       return;
     }
     container.innerHTML = gallery.map(item => renderGalleryCard(item)).join('');
+    container.querySelectorAll('.gallery-img').forEach(img => {
+      img.addEventListener('error', () => {
+        img.src = 'images/apsacs-logo.png';
+      }, { once: true });
+    });
   }
 
   if (loadMoreBtn) {

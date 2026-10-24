@@ -27,14 +27,14 @@ export function initOnboarding() {
 
     return {
       name: (document.getElementById('w-name')?.value || '').trim(),
-      house: document.getElementById('w-house')?.value || 'Unity',
-      group: document.getElementById('w-group')?.value || 'Pre-Medical',
-      category: document.getElementById('w-category')?.value || 'Sports',
+      house: document.getElementById('w-house')?.value || '',
+      group: document.getElementById('w-group')?.value || '',
+      category: document.getElementById('w-category')?.value || '',
       bio: (document.getElementById('w-bio')?.value || '').trim(),
-      favSubject: document.getElementById('w-subject')?.value || 'Computer Science',
+      favSubject: document.getElementById('w-subject')?.value || '',
       favQuote: (document.getElementById('w-quote')?.value || '').trim(),
       funFact: (document.getElementById('w-fact')?.value || '').trim(),
-      tags: document.getElementById('w-tags')?.value || 'Cricket',
+      tags: document.getElementById('w-tags')?.value || '',
       gradientIndex: selectedGradient,
       birthday,
       showBirthday: !!document.getElementById('w-show-birthday')?.checked,
@@ -109,7 +109,7 @@ export function initOnboarding() {
     });
 
     const fill = document.getElementById('wizard-progress-fill');
-    if (fill) fill.style.width = `${(currentStep / 3) * 100}%`;
+    if (fill) fill.className = `wizard-progress-fill step-${currentStep}`;
 
     const backBtn = document.getElementById('wizard-back-btn');
     if (backBtn) backBtn.disabled = currentStep === 0;
@@ -127,14 +127,24 @@ export function initOnboarding() {
 
   function validateStep(step) {
     const data = getFormData();
+    const NAME_REGEX = /^[\p{L}\p{M}\s.'-]{3,60}$/u;
+
     if (step === 0) {
-      if (!data.name || data.name.length < 3 || !/^[a-zA-Z\s\.\-]{3,60}$/.test(data.name)) {
-        showToast('Please enter a valid full name (at least 3 letters, no numbers or special symbols).', 'error');
+      if (!data.name || data.name.length < 3 || !NAME_REGEX.test(data.name)) {
+        showToast('Please enter a valid full name (3-60 characters, letters from any language, dots or apostrophes).', 'error');
+        return false;
+      }
+      if (!data.house || !data.group || !data.category) {
+        showToast('Please select your House, Academic Group, and Primary Activity.', 'error');
         return false;
       }
     } else if (step === 1) {
       if (!data.bio || data.bio.length < 15) {
         showToast('Please write a short bio and future ambition (at least 15 characters).', 'error');
+        return false;
+      }
+      if (!data.favSubject || !data.tags) {
+        showToast('Please select your Favourite Subject and Main Hobby.', 'error');
         return false;
       }
       if (!data.favQuote || data.favQuote.length < 8) {

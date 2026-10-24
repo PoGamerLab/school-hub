@@ -29,6 +29,11 @@ export function initTeachers() {
       return;
     }
     container.innerHTML = teachers.map(tch => renderTeacherCard(tch)).join('');
+    container.querySelectorAll('.teacher-photo-img').forEach(img => {
+      img.addEventListener('error', () => {
+        img.remove();
+      }, { once: true });
+    });
   }
 
   if (loadMoreBtn) {

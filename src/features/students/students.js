@@ -3,8 +3,9 @@ import { router } from '../../core/router/router.js';
 import { authService } from '../../core/auth/auth.js';
 import { renderStudentCard, renderProfileView } from './students.render.js';
 import { showToast } from '../../components/toast/toast.js';
-import { subscribeClassCollection, unsubscribeCollection, deleteDocument, updateDocument } from '../../core/db/firestore.js';
+import { subscribeClassCollection, unsubscribeCollection, deleteDocument, updateDocument, runBatchWrite } from '../../core/db/firestore.js';
 import { openProfileModal, initProfileForm } from './students.modal.js';
+import { openPhotoUploadModal } from '../profile/photoUpload.modal.js';
 
 export function initStudents() {
   const gridContainer = document.querySelector('.grid');
@@ -74,9 +75,12 @@ export function initStudents() {
       return;
     }
     studentSelect.disabled = false;
-    studentSelect.innerHTML = students.map(s => 
-      `<option value="${s.id || s.uid}">${s.name} (${s.house || 'Unity'} House)</option>`
-    ).join('');
+    studentSelect.innerHTML = students.map(s => {
+      const safeVal = escapeAttr(s.id || s.uid);
+      const safeName = escapeHtml(s.name || 'Student');
+      const safeHouse = escapeHtml(s.house || 'Unity');
+      return `<option value="${safeVal}">${safeName} (${safeHouse} House)</option>`;
+    }).join('');
     studentSelect.value = store.get('currentStudentId') || (students[0].id || students[0].uid);
   }
 
@@ -114,17 +118,55 @@ export function initStudents() {
     }
   }
 
-  // Profile action buttons (Edit Profile, Create Profile, or Admin Delete) on #profile
+  // Profile action buttons (Edit Profile, Change Photo, Report Photo, Create Profile, or Admin Delete)
   document.querySelector('#profile')?.addEventListener('click', async (e) => {
     const editBtn = e.target.closest('#edit-my-profile-btn');
     const createBtn = e.target.closest('#create-my-profile-btn');
+    const changePhotoBtn = e.target.closest('#change-photo-btn');
+    const reportPhotoBtn = e.target.closest('#report-profile-photo-btn');
     const deleteBtn = e.target.closest('#admin-delete-student-btn');
 
+    const user = authService.getCurrentUser();
+    const students = store.get('students') || [];
+    const myProfile = students.find(s => (s.id || s.uid) === user?.uid || s.ownerUid === user?.uid);
+
     if (editBtn || createBtn) {
-      const user = authService.getCurrentUser();
-      const students = store.get('students') || [];
-      const myProfile = students.find(s => (s.id || s.uid) === user?.uid || s.ownerUid === user?.uid);
       openProfileModal(myProfile);
+      return;
+    }
+
+    if (changePhotoBtn) {
+      openPhotoUploadModal(myProfile);
+      return;
+    }
+
+    if (reportPhotoBtn) {
+      const targetUid = reportPhotoBtn.dataset.uid;
+      if (!user || !targetUid) return;
+
+      const reason = prompt('Why are you reporting this profile photo? (inappropriate, harassment, spam, other):', 'inappropriate');
+      if (!reason) return;
+      const safeReason = ['inappropriate', 'harassment', 'spam', 'other'].includes(reason.toLowerCase().trim())
+        ? reason.toLowerCase().trim()
+        : 'other';
+      const details = (prompt('Optional details (up to 200 characters):') || '').slice(0, 200);
+
+      try {
+        const { initFirebase } = await import('../../config/firebase.js');
+        const fb = await initFirebase();
+        const { doc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const reportUpdate = {};
+        reportUpdate[`photoReports.${user.uid}`] = {
+          reason: safeReason,
+          details,
+          createdAt: serverTimestamp()
+        };
+        await updateDoc(doc(fb.db, 'students', targetUid), reportUpdate);
+        showToast('Photo reported to school administration.', 'info');
+      } catch (err) {
+        console.error('Photo report failed:', err);
+        showToast('Could not submit report.', 'error');
+      }
       return;
     }
 
@@ -137,16 +179,17 @@ export function initStudents() {
         return;
       }
       try {
-        await deleteDocument('students', targetUid);
-        await updateDocument('users', targetUid, {
-          status: 'needs_profile',
-          profileDeletedReason: reason.trim(),
-          profileDeletedAt: Date.now()
-        });
-        showToast('Student profile deleted. Student must recreate it on their next visit.', 'success');
+        await runBatchWrite([
+          { type: 'delete', collection: 'students', id: targetUid },
+          { type: 'delete', collection: 'avatars', id: targetUid },
+          { type: 'set', collection: 'users', id: targetUid, data: { status: 'needs_profile', profileDeletedReason: reason.trim(), profileDeletedAt: Date.now() }, merge: true },
+          { type: 'set', collection: 'adminLog', id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, data: { action: 'DELETE_PROFILE', actorUid: user.uid, targetUid, reason: reason.trim(), createdAt: new Date() } }
+        ]);
+        showToast('Student profile deleted atomically.', 'success');
         router.navigate('class');
       } catch (err) {
-        showToast(`Deletion failed: ${err.message}`, 'error');
+        console.error('Delete profile error:', err);
+        showToast('Deletion failed. Check permissions.', 'error');
       }
     }
   });
@@ -155,7 +198,7 @@ export function initStudents() {
 
   if (loadMoreBtn) {
     loadMoreBtn.addEventListener('click', async () => {
-      if (activeSub && activeSub.loadMore) {
+      if (activeSub?.loadMore) {
         loadMoreBtn.disabled = true;
         loadMoreBtn.textContent = 'Loading...';
         await activeSub.loadMore();
@@ -180,8 +223,7 @@ export function initStudents() {
     chip.addEventListener('click', () => {
       chipButtons.forEach(c => c.classList.remove('active'));
       chip.classList.add('active');
-      const filterVal = chip.dataset.filter || chip.textContent.trim();
-      store.set('activeCategory', filterVal, false);
+      store.set('activeCategory', chip.dataset.filter || chip.textContent.trim(), false);
       renderGrid();
     });
   });
@@ -189,10 +231,7 @@ export function initStudents() {
   if (gridContainer) {
     gridContainer.addEventListener('click', (e) => {
       const card = e.target.closest('.card');
-      if (card) {
-        const studentId = card.dataset.id;
-        router.navigate('profile', { id: studentId });
-      }
+      if (card) router.navigate('profile', { id: card.dataset.id });
     });
   }
 
@@ -203,21 +242,16 @@ export function initStudents() {
   }
 
   if (backToStudentsBtn) {
-    backToStudentsBtn.addEventListener('click', () => {
-      router.navigate('class');
-    });
+    backToStudentsBtn.addEventListener('click', () => router.navigate('class'));
   }
 
-  // P0-6: Screen-scoped subscription functions
   async function startSubscription() {
     const classId = store.get('currentClassId') || '';
     activeSub = await subscribeClassCollection('students', classId, (_items, hasMore) => {
       renderGrid();
       updateDropdown();
       updateProfile(store.get('currentStudentId'));
-      if (loadMoreContainer) {
-        loadMoreContainer.classList.toggle('hidden', !hasMore);
-      }
+      if (loadMoreContainer) loadMoreContainer.classList.toggle('hidden', !hasMore);
     });
   }
 
@@ -227,21 +261,14 @@ export function initStudents() {
     if (loadMoreContainer) loadMoreContainer.classList.add('hidden');
   }
 
-  router.registerScreenHook('students', {
-    onEnter: startSubscription,
-    onLeave: stopSubscription
-  });
-
+  router.registerScreenHook('students', { onEnter: startSubscription, onLeave: stopSubscription });
   router.registerScreenHook('profile', {
     onEnter: () => { if (!activeSub) startSubscription(); },
     onLeave: () => { if (router.activeScreenId !== 'students') stopSubscription(); }
   });
 
   store.subscribe('currentClassId', () => {
-    if (router.activeScreenId === 'students' || router.activeScreenId === 'profile') {
-      startSubscription();
-    }
+    if (router.activeScreenId === 'students' || router.activeScreenId === 'profile') startSubscription();
   });
-
   store.subscribe('currentStudentId', (id) => updateProfile(id));
 }

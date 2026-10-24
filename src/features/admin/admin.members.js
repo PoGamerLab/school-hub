@@ -1,9 +1,9 @@
 import { initFirebase } from '../../config/firebase.js';
 import { renderMembersManager } from './admin.render.js';
 import { showToast } from '../../components/toast/toast.js';
-import { updateDocument, deleteDocument } from '../../core/db/firestore.js';
+import { runBatchWrite } from '../../core/db/firestore.js';
 import { fetchActiveClasses } from '../gate/gate.db.js';
-import { logAdminAction } from '../../core/siteConfig.js';
+import { authService } from '../../core/auth/auth.js';
 
 export async function loadAndRenderMembers() {
   const container = document.getElementById('admin-members-root');
@@ -57,13 +57,17 @@ function attachMemberEvents(allUsers, classes) {
 
       btn.disabled = true;
 
+      const adminUser = authService.getCurrentUser();
+      const adminUid = adminUser?.uid || 'admin';
+      const logId = () => `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+
       try {
         if (action === 'approve-user') {
-          await updateDocument('users', uid, { status: 'active', banned: false });
-          try {
-            await updateDocument('students', uid, { verified: true });
-          } catch {}
-          await logAdminAction('APPROVE_USER', uid, 'Manually activated account');
+          await runBatchWrite([
+            { type: 'set', collection: 'users', id: uid, data: { status: 'active', banned: false }, merge: true },
+            { type: 'set', collection: 'students', id: uid, data: { verified: true }, merge: true },
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'APPROVE_USER', actorUid: adminUid, targetUid: uid, note: 'Manually activated account', createdAt: new Date() } }
+          ]);
           showToast('User membership approved and activated.', 'success');
           await loadAndRenderMembers();
         } else if (action === 'reset-gate') {
@@ -71,9 +75,11 @@ function attachMemberEvents(allUsers, classes) {
             btn.disabled = false;
             return;
           }
-          await deleteDocument('gate', uid);
-          await updateDocument('users', uid, { status: 'needs_gate' });
-          await logAdminAction('RESET_GATE', uid, 'Cleared gate attempts');
+          await runBatchWrite([
+            { type: 'delete', collection: 'gate', id: uid },
+            { type: 'set', collection: 'users', id: uid, data: { status: 'needs_gate' }, merge: true },
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'RESET_GATE', actorUid: adminUid, targetUid: uid, note: 'Cleared gate attempts', createdAt: new Date() } }
+          ]);
           showToast('User gate status reset.', 'info');
           await loadAndRenderMembers();
         } else if (action === 'ban-user') {
@@ -81,13 +87,17 @@ function attachMemberEvents(allUsers, classes) {
             btn.disabled = false;
             return;
           }
-          await updateDocument('users', uid, { banned: true });
-          await logAdminAction('BAN_USER', uid, 'User banned from platform');
+          await runBatchWrite([
+            { type: 'set', collection: 'users', id: uid, data: { banned: true }, merge: true },
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'BAN_USER', actorUid: adminUid, targetUid: uid, note: 'User banned from platform', createdAt: new Date() } }
+          ]);
           showToast('User banned.', 'error');
           await loadAndRenderMembers();
         } else if (action === 'unban-user') {
-          await updateDocument('users', uid, { banned: false });
-          await logAdminAction('UNBAN_USER', uid, 'User unbanned');
+          await runBatchWrite([
+            { type: 'set', collection: 'users', id: uid, data: { banned: false }, merge: true },
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'UNBAN_USER', actorUid: adminUid, targetUid: uid, note: 'User unbanned', createdAt: new Date() } }
+          ]);
           showToast('User unbanned.', 'success');
           await loadAndRenderMembers();
         } else if (action === 'revoke-user') {
@@ -95,8 +105,10 @@ function attachMemberEvents(allUsers, classes) {
             btn.disabled = false;
             return;
           }
-          await updateDocument('users', uid, { status: 'revoked' });
-          await logAdminAction('REVOKE_USER', uid, 'User status set to revoked');
+          await runBatchWrite([
+            { type: 'set', collection: 'users', id: uid, data: { status: 'revoked' }, merge: true },
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'REVOKE_USER', actorUid: adminUid, targetUid: uid, note: 'User status set to revoked', createdAt: new Date() } }
+          ]);
           showToast('User access revoked.', 'info');
           await loadAndRenderMembers();
         } else if (action === 'delete-profile') {
@@ -106,19 +118,18 @@ function attachMemberEvents(allUsers, classes) {
             btn.disabled = false;
             return;
           }
-          await deleteDocument('students', uid);
-          await updateDocument('users', uid, {
-            status: 'needs_profile',
-            profileDeletedReason: reason.trim(),
-            profileDeletedAt: Date.now()
-          });
-          await logAdminAction('DELETE_PROFILE', uid, `Deleted profile: "${reason.trim()}"`);
+          await runBatchWrite([
+            { type: 'delete', collection: 'students', id: uid },
+            { type: 'delete', collection: 'avatars', id: uid },
+            { type: 'set', collection: 'users', id: uid, data: { status: 'needs_profile', profileDeletedReason: reason.trim(), profileDeletedAt: Date.now() }, merge: true },
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'DELETE_PROFILE', actorUid: adminUid, targetUid: uid, reason: reason.trim(), createdAt: new Date() } }
+          ]);
           showToast('Student profile deleted. Student must recreate it on next visit.', 'success');
           await loadAndRenderMembers();
         }
       } catch (err) {
         console.error('Member action failed:', err);
-        showToast(`Action failed: ${err.message}`, 'error');
+        showToast('Action failed. Check permissions.', 'error');
       } finally {
         btn.disabled = false;
       }
@@ -132,16 +143,20 @@ function attachMemberEvents(allUsers, classes) {
       if (!uid || !newClassId) return;
 
       select.disabled = true;
+      const adminUser = authService.getCurrentUser();
+      const adminUid = adminUser?.uid || 'admin';
+
       try {
-        await updateDocument('users', uid, { classId: newClassId });
-        try {
-          await updateDocument('students', uid, { classId: newClassId });
-        } catch {}
-        await logAdminAction('MOVE_CLASS', uid, `Moved user to class: ${newClassId}`);
+        await runBatchWrite([
+          { type: 'set', collection: 'users', id: uid, data: { classId: newClassId }, merge: true },
+          { type: 'set', collection: 'students', id: uid, data: { classId: newClassId }, merge: true },
+          { type: 'set', collection: 'adminLog', id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, data: { action: 'MOVE_CLASS', actorUid: adminUid, targetUid: uid, newClassId, createdAt: new Date() } }
+        ]);
         showToast(`User moved to class ${newClassId}.`, 'success');
         await loadAndRenderMembers();
       } catch (err) {
-        showToast(`Failed to change class: ${err.message}`, 'error');
+        console.error('Failed to change class:', err);
+        showToast('Failed to change class.', 'error');
       } finally {
         select.disabled = false;
       }

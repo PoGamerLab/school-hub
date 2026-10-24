@@ -11,7 +11,6 @@ import { showToast } from '../../components/toast/toast.js';
 
 const MAX_PROFILE_RETRIES = 3;
 const RETRY_DELAY_MS = 1200;
-const KNOWN_ADMIN_UIDS = ['09GmmAuEGmdSHL6X9Z9BgGGenfW2', 'Ox86p08MIYcdvMWCMTFNYXFJeXC2'];
 
 function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -119,7 +118,7 @@ class AuthService {
         userData = userSnap.data();
       }
 
-      // Confirm admin status via admins/{uid} or known admin UIDs or user profile
+      // Confirm admin status strictly via admins/{uid} document (Phase A1)
       const adminRef = doc(firebase.db, 'admins', firebaseUser.uid);
       let adminSnap = null;
       try {
@@ -128,30 +127,7 @@ class AuthService {
         console.warn('[Auth] Check admin doc warning:', err);
       }
 
-      const isAdmin = (adminSnap && adminSnap.exists()) ||
-                      KNOWN_ADMIN_UIDS.includes(firebaseUser.uid) ||
-                      userData.role === 'admin';
-
-      // Auto-provision admin doc if recognized as admin
-      if (isAdmin) {
-        if (!adminSnap || !adminSnap.exists()) {
-          try {
-            await setDoc(adminRef, { role: 'admin', createdAt: serverTimestamp() }, { merge: true });
-          } catch (e) {
-            console.warn('[Auth] Auto-provision admin error:', e);
-          }
-        }
-        if (userData.role !== 'admin' || userData.status !== 'active') {
-          userData.role = 'admin';
-          userData.status = 'active';
-          try {
-            await setDoc(userRef, { role: 'admin', status: 'active' }, { merge: true });
-          } catch (e) {
-            console.warn('[Auth] Auto-activate admin profile error:', e);
-          }
-        }
-      }
-
+      const isAdmin = !!(adminSnap && adminSnap.exists());
       hideProfileErrorBanner();
 
       // Admins always get treated as active even if status field is missing/wrong

@@ -7,7 +7,7 @@ export function renderGalleryCard(item) {
   return `
     <div class="gallery-card" data-id="${escapeAttr(item.id)}">
       <div class="gallery-img-container">
-        <img src="${safeUrl}" alt="${safeCaption}" class="gallery-img" onerror="this.onerror=null; this.src='images/apsacs-logo.png';">
+        <img src="${safeUrl}" alt="${safeCaption}" class="gallery-img" loading="lazy">
       </div>
       <div class="gallery-caption">${safeCaption}</div>
     </div>

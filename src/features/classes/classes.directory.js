@@ -2,6 +2,7 @@ import { initFirebase } from '../../config/firebase.js';
 import { authService } from '../../core/auth/auth.js';
 import { store } from '../../core/store/store.js';
 import { renderStudentCard } from '../students/students.render.js';
+import { bindAvatarFallbacks } from '../../components/avatar/avatar.js';
 
 let allStudents = [];
 let dirFilter = 'All';
@@ -70,4 +71,5 @@ export function renderDirectoryGrid() {
   }
 
   dirGrid.innerHTML = filtered.map(s => renderStudentCard(s)).join('');
+  bindAvatarFallbacks(dirGrid);
 }

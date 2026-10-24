@@ -1,0 +1,244 @@
+School Hub: Build Spec (Security Fixes, Privacy, Profile Pictures, Chat Safety)
+Written for the coding agent. It follows the last build spec and the audit of the latest zip. Do the phases in order. Phase A is urgent.
+1. Rules for the agent
+• Keep the multi-file structure: one folder per feature or component, each code file about 200–300 lines at most.
+• Styles live only in .css files. No inline style attributes, no inline event handlers (no onerror= or onclick= in HTML strings). Attach listeners in JavaScript.
+• Escape every user-controlled value before it goes into HTML.
+• Do one numbered task at a time. Commit after each one and test it before the next.
+• Never put secrets, gate answers or admin UIDs in code or in the repo. The repo is public.
+• Security rules are the real protection. The page only mirrors them. Every new field the page writes needs a matching rule with type and size limits.
+• The page must never write a name, UID or role that belongs to somebody else. Identity fields are checked by the rules against the signed-in user.
+• If this spec and the existing code disagree, follow this spec. If two parts of this spec disagree, stop and report it.
+2. Decisions already made
+Topic
+Decision
+Profile pictures
+Upload (cropped and resized) with an optional Google photo. No paid Storage. Images are stored inside Firestore as small JPEG data.
+Who sees profiles and photos
+Every active member of the whole school sees student profiles and photos, but only what the student chose to share. Birthday and contact appear only when the student turned the show option on.
+Class-private data
+Class chat, class announcements, memories and superlatives stay readable by members of that class only.
+Teachers and gallery
+Readable by active members only (not the public internet).
+Class chat
+Kept, with rate limits, reporting, mute and moderation.
+Admin identity
+Only a document in admins/{uid}, created by hand in the Firebase console.
+3. Phase A: close the admin hole (do this first)
+A1 Admin rule and auto-provisioning
+Problem: the admins/{uid} rule lets any signed-in user write their own admin document, and auth.js creates it automatically. Anyone with a Google account could become admin.
+Required:
+1. admins/{uid}: no client writes at all. Read allowed only for the owner of that UID or for an admin. No listing for normal users.
+2. Delete the code in auth.js that creates admins/{uid} or writes role or status for admins.
+3. Delete the KNOWN_ADMIN_UIDS list from auth.js and the hard-coded UID list from isAdmin() in the rules.
+4. isAdmin() in the rules means one thing only: admins/{uid} exists. Remove the users.role equals admin path too.
+5. The page decides isAdmin only by reading its own admins/{uid} document.
+6. Admins still need a users record with status active. The admin creates it once in the console.
+Test in the Rules Playground: as a random signed-in UID, creating admins/{thatUid} is denied. As an existing admin, reading admins/{adminUid} is allowed. A normal user cannot list admins.
+Manual steps for the site owner after publishing: open the admins collection in the Firebase console and delete any UID that is not yours. Check users for unexpected admins. Change the gate answers if misuse is possible.
+4. Phase B: rules tightening
+B1 Class helper
+inMyClass(classId) must be true only when the user’s classId equals classId and classId is not empty (or the user is admin). Remove the empty-class exception.
+B2 Read scope (follows the decisions)
+Collection
+Who can read
+students, avatars
+Any active member (whole school)
+teachers, gallery
+Any active member. No public read.
+memories, superlatives
+Active members of the same class
+classes/{id}/announcements
+Active members of the same class
+classChats/{id}/messages
+Active members of the same class
+classes (active)
+Any signed-in user (needed for the gate class picker). Remove public read.
+siteConfig
+Any signed-in user
+B3 Identity fields
+For every create, the rules must force these to match the signer: authorUid, ownerUid, createdBy. Any stored display name for the author (authorName) must equal students/{uid}.name, read by the rule. The page must not send a name it made up.
+B4 Student document validation
+On create and on update, the same checks apply:
+• Allowed keys only (hasOnly). Add the new photo keys from section 6.
+• name 1 to 80 characters. roll digits only, up to 10. category must be one of the allowed values. tags up to 100. bio up to 500. favSubject up to 60. favQuote up to 200. funFact up to 200. house and group must be one of the allowed values listed in constants.js. initials up to 4. gradientIndex integer 0 to 7. showBirthday, showContact and showInDirectory are booleans.
+• birthday exists only if showBirthday is true. contact exists only if showContact is true.
+• On update by the owner: ownerUid, classId and verified cannot change. Only admin can change them.
+B5 users.photoURL
+Allow only an empty string, or a string up to 300 characters starting with https://lh3.googleusercontent.com/. Stop using users.photoURL for any display other than the signed-in person’s own account menu.
+B6 Gallery and teachers
+• gallery create: active member, ownerUid equals the signer, caption up to 140, https URL up to 500, createdAt equals request time. Delete by owner or admin.
+• teachers: create, update and delete by admin only, with the existing field limits and an https check on img (up to 300 characters).
+B7 Admin log and admin list
+• adminLog: create only by admin, with actorUid equal to the signer and createdAt equal to request time. No update, no delete. Reads by admin only.
+• admins listing: see A1.
+B8 Reports on memories and superlatives
+The report value written under reports.{uid} must be a small structure: reason from a fixed list, details up to 200 characters. Add limits so the map cannot be filled with large data.
+B9 Tests
+Test
+Expected
+Signed-out read of teachers or gallery
+Denied
+Active member of class A reads memories of class B
+Denied
+Active member of class A reads student profiles of class B
+Allowed
+Create a memory or gallery item with classId empty
+Denied
+Student update with an unknown extra key
+Denied
+Student update with a 5,000 character funFact
+Denied
+Owner changes own verified, classId or ownerUid
+Denied
+users.photoURL set to a non-Google URL
+Denied
+Report with a 5,000 character detail
+Denied
+adminLog update or delete by an admin
+Denied
+5. Phase C: class chat safety and announcements
+C1 Message model and rules
+classChats/{classId}/messages/{id} may contain only: authorUid, authorName, classId, text, reports, createdAt (allowed-keys list).
+• authorUid equals the signer. authorName equals students/{uid}.name (the rule reads it). classId equals the path classId.
+• text 1 to 500 characters. reports starts as an empty map. createdAt equals request time.
+• The page must not send authorName that it built itself from the Google name.
+• Reads: active members of the same class.
+• Delete: the author or admin.
+• Update: only a member adding or removing their own key in reports, with a small reason structure as in B8.
+C2 Rate limit (enforced by the rules)
+Use one small document per user: chatState/{uid} with lastMessageAt.
+• Each message is sent as one batched write: create the message and set chatState/{uid}.lastMessageAt to request time.
+• The rule on the message requires the previous lastMessageAt to be at least 5 seconds before request time, and the after-write lastMessageAt to equal request time (use the before-write and after-write document checks).
+• chatState/{uid}: owner can read and write only the lastMessageAt field, equal to request time. Admin can read.
+• The page shows a short cooldown message if the write is refused.
+C3 Mute
+Add users.mutedUntil (timestamp, optional). Only admin can set it. A message create is denied when mutedUntil is in the future. Show a clear muted notice in the chat box.
+C4 Reading cost
+• Load the newest 50 messages (ordered by createdAt, newest first, reversed for display). A Load older button fetches the next 50 with a cursor.
+• The live listener runs only while the chat tab is open. Stop it when the tab is hidden for 60 seconds and restart it when visible again.
+• Do not use limit(250) any more.
+C5 Reporting and moderation
+• Each message has a Report button (reason list plus optional details).
+• A message with 3 or more reports is hidden on the page for everyone except admin. It is not deleted.
+• Admin Moderation tab gets a Chat Reports list: view the message, delete it, restore it, mute the author, or ban.
+• Every admin action writes an adminLog entry.
+C6 Display and safety
+• Messages are plain text only. No links are made clickable, no images, no HTML.
+• The author’s avatar comes from the shared avatar helper (section 6.5).
+C7 Announcements
+classes/{classId}/announcements: allowed keys only (title, body, authorUid, authorName, createdAt, pinned optional). title up to 100, body up to 1000, authorUid equals the signer, authorName equals the monitor’s student name or the admin label, createdAt equals request time. Only admin or the class monitor creates. Update by admin only. Delete by admin or the author.
+C8 Tests
+Test
+Expected
+Message with authorName of someone else
+Denied
+Message with an extra key
+Denied
+Two messages within 5 seconds
+Second denied
+Message from a muted user
+Denied
+Message from a member of another class
+Denied
+Report the same message twice from one account
+One report only
+Open the chat and count reads
+50 or fewer
+Message with 501 characters
+Denied
+Announcement from a normal member
+Denied
+6. Phase D: profile pictures
+6.1 Storage choice
+Firebase Storage is not used (it needs a paid plan). Images are small JPEG files stored as text (base64 data URLs) in Firestore.
+6.2 Data model
+students/{uid} gets these optional fields:
+• photoSource: none, upload or google
+• photoThumb: a data URL of a 96 by 96 JPEG, up to 8,000 characters, present only when photoSource is upload
+• googlePhotoUrl: an https URL on lh3.googleusercontent.com up to 300 characters, present only when photoSource is google
+• photoReports: map keyed by UID with the small report structure (same limits as B8)
+• photoUpdatedAt: server time
+avatars/{uid} (large image, loaded only when a profile is opened):
+• photo: data URL of a 256 by 256 JPEG, up to 40,000 characters
+• ownerUid, updatedAt
+6.3 Rules
+• avatars/{uid}: read by any active member. Create and update only by the owner. photo starts with the data:image/jpeg;base64, prefix and is at most 40,000 characters. ownerUid equals the signer. updatedAt equals request time. An update is allowed only if at least 1 hour has passed since the previous updatedAt. Delete by the owner or admin.
+• students photo keys: photoThumb only when photoSource is upload, with the same prefix check and 8,000 character limit. googlePhotoUrl only when photoSource is google. photoSource must be one of the three values. When photoSource is upload, the avatars/{uid} document must exist after the write (use the after-write existence check).
+• Test the prefix check with a long string in the Rules Playground. If matching on a long string is rejected or slow, keep only a short prefix test plus the size limit.
+6.4 Client pipeline (shared module, one folder)
+1. File picker accepts image/jpeg, image/png and image/webp. Maximum input size 5 MB. Anything else is refused with a clear message. SVG and GIF are refused.
+2. Decode the file in the browser (respecting camera rotation). If it does not decode as an image, refuse it.
+3. Square crop screen: drag to move, slider to zoom, live preview inside a circle.
+4. Export two JPEG images on a canvas: 256 by 256 and 96 by 96. Start at quality 0.78 for the large one and 0.7 for the small one, and lower the quality step by step until the large file is about 28 KB or less and the small one about 6 KB or less (base64 length must stay under the rule limits). Re-encoding removes camera metadata such as location.
+5. Save with one batched write: set avatars/{uid}, and update students/{uid} with photoSource upload, photoThumb and photoUpdatedAt. If either fails, neither applies.
+6. Remove photo: one batched write that deletes avatars/{uid} and sets photoSource none and removes photoThumb.
+7. Show the one-hour limit message if the write is refused.
+6.5 Google photo option
+• A toggle in My Profile: Use my Google photo. When turned on, show a clear warning that the photo becomes visible to the whole school.
+• On confirm, save photoSource google and googlePhotoUrl (copied from the signed-in user’s Google account, matching the allowed pattern). If an uploaded photo exists, it is kept but not shown until the student switches back.
+• Render the Google image with no referrer. If it fails to load, fall back to the initials avatar.
+6.6 Shared avatar helper
+One function renders every avatar in the app (cards, profile, directory, class hub, account menu, chat, admin lists). Order: uploaded thumbnail, then Google photo, then gradient with initials. It always escapes values, sets alt text, uses lazy loading, and attaches the error fallback through JavaScript (no inline handler). The profile page loads avatars/{uid} for the large image and shows the thumbnail while it loads.
+6.7 Photo moderation
+• A Report photo button on other people’s profiles writes photoReports.{uid}.
+• Three or more reports hide the photo on the page for everyone except admin and the owner.
+• Admin Moderation tab gets a Photo Reports list with Remove photo (batched delete as in 6.4 step 6 plus an adminLog entry), Restore, and Ban.
+• The student sees a short notice when their photo was removed.
+6.8 Cost notes
+• Reads are billed per document, not per byte. The 96 by 96 thumbnail lives inside the student document, so student lists need no extra reads.
+• A page of 30 students downloads roughly 120 to 250 KB of thumbnails. Acceptable. Do not raise the thumbnail size.
+• Changing a photo costs 2 writes.
+6.9 Tests
+Test
+Expected
+Upload a normal phone photo
+Saved, both sizes shown correctly, large file about 30 KB or less
+Upload a 12 MB photo
+Refused before processing
+Upload an SVG, GIF or a renamed text file
+Refused
+Phone photo taken sideways
+Displays upright
+Photo contains location data
+Re-encoded image has none
+Change photo twice within an hour
+Second refused with a clear message
+Student document with photoThumb above 8,000 characters
+Denied
+Student document with photoSource upload but no avatars document
+Denied
+Another user writes someone else’s avatars document
+Denied
+Set googlePhotoUrl to a non-Google URL
+Denied
+Turn on Google photo, then turn it off
+Initials or upload shown correctly
+Three reports on a photo
+Hidden for others, visible to admin and owner
+Admin removes a photo
+Both documents updated, log entry written
+7. Phase E: cleanup and fixes
+1. Atomic admin actions. Approve user, delete profile, move class and reset gate each use one batched write (the page already has a batch helper). The adminLog entry is part of the same batch.
+2. Names. Allow letters from any script (including Urdu), spaces, dots, hyphens and apostrophes, 3 to 60 characters. Apply the same rule in the page and in the security rules (length only in the rules).
+3. No silent defaults. The profile form must not pre-fill category, tags, house, group or favorite subject. Each starts empty and is required.
+4. Gate setup. If gateConfig/questions or gateConfig/answers is missing, show Setup incomplete, please tell the admin. Do not show sample questions.
+5. Failed profile load. After all retries fail, keep the retry banner and show a clear loading-failed screen. Do not show the signed-out landing page while a Google session exists.
+6. Viewport. Change the viewport meta tag to include viewport-fit=cover so the safe-area padding works on phones with a notch.
+7. Inline handlers. Remove the inline onerror handlers in the gallery and teacher templates. Attach the fallback in JavaScript.
+8. Clutter. Remove implemented.txt from the repo, and update the README to match the current architecture.
+8. Order of work
+1. A1 (admin hole). Publish the rules, then do the manual console steps.
+2. B1 to B8 (rules tightening), then the B9 tests in the Rules Playground.
+3. C1 to C7 (chat and announcements), then the C8 tests.
+4. Phase D in this order: rules (6.3), shared avatar helper (6.6), upload pipeline (6.4), Google option (6.5), moderation (6.7), then the 6.9 tests.
+5. Phase E items.
+6. Full re-test with two Google accounts in two classes, then a one-class soft launch.
+9. Definition of done
+• No signed-in user can create or edit an admin record.
+• Signed-out visitors can read nothing except the landing page and sign-in.
+• Every written field has a type and size limit in the rules, and no identity field can be faked.
+• Chat cannot be flooded, every message can be reported, and admin can mute and delete.
+• A student can upload, change, remove, report and hide photos exactly as described, and uploaded photos never exceed the size limits.
+• Every test table above passes.
+• No file is much over 300 lines, there are no inline styles or handlers, and no secrets are in the repo.

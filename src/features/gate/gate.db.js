@@ -7,13 +7,8 @@ import { initFirebase } from '../../config/firebase.js';
 
 export async function fetchGateQuestions() {
   const doc = await getDocument('gateConfig', 'questions');
-  if (doc && doc.q1Text) return doc;
-  return {
-    q1Text: 'What is our school motto?',
-    q2Text: 'What color is our school crest border?',
-    q3Text: 'Who is our class teacher?',
-    version: 1
-  };
+  if (doc && doc.q1Text && doc.q2Text && doc.q3Text) return doc;
+  return null;
 }
 
 export async function fetchActiveClasses() {

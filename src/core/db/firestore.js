@@ -1,18 +1,11 @@
 /**
- * Firestore data layer.
- *
- * P0-4: Query errors are surfaced visibly (not console-only).
- * P0-5: Page size 30 for students, 20 for others.
- *        subscribeClassCollection returns { unsubscribe, loadMore, hasMore }.
- * P0-6: Subscriptions are managed per screen; the router calls
- *        unsubscribeCollection when a screen is exited.
+ * Firestore data layer (live subscriptions, pagination cursor, atomic batches).
  */
 
 import { initFirebase } from '../../config/firebase.js';
 import { store } from '../store/store.js';
 import { LIMITS } from '../../config/constants.js';
 
-/** Map of collectionName → Firestore unsubscribe function */
 const activeSubscriptions = new Map();
 
 async function ensureDb() {
@@ -20,17 +13,15 @@ async function ensureDb() {
   return res ? res.db : null;
 }
 
-/** Show a visible error on the current screen container. */
 function showListError(collectionName, message) {
   const ids = {
-    students:    '.grid',
-    memories:    '#memories-container',
-    gallery:     '#gallery-container',
-    teachers:    '#teachers-container',
-    superlatives:'#superlatives-container'
+    students: '.grid',
+    memories: '#memories-container',
+    gallery: '#gallery-container',
+    teachers: '#teachers-container',
+    superlatives: '#superlatives-container'
   };
-  const selector = ids[collectionName];
-  const el = selector ? document.querySelector(selector) : null;
+  const el = ids[collectionName] ? document.querySelector(ids[collectionName]) : null;
   if (el) {
     el.innerHTML = `<div class="empty-state full-width-empty">
       <div class="empty-state-icon">⚠️</div>
@@ -41,287 +32,156 @@ function showListError(collectionName, message) {
   console.error(`[Firestore:${collectionName}]`, message);
 }
 
-/**
- * Subscribe to a class-scoped collection with live updates (first page).
- *
- * Returns { loadMore, unsubscribe }
- *   loadMore() → fetches the next page via getDocs (cursor-based, P0-5).
- *   hasMore    → getter boolean.
- *
- * Callers append to the local list when loadMore() resolves.
- */
 export async function subscribeClassCollection(collectionName, classId, onUpdate) {
   unsubscribeCollection(collectionName);
-
-  const pageSize = collectionName === 'students'
-    ? LIMITS.PAGE_SIZE_STUDENTS
-    : LIMITS.PAGE_SIZE_DEFAULT;
-
+  const pageSize = collectionName === 'students' ? LIMITS.PAGE_SIZE_STUDENTS : LIMITS.PAGE_SIZE_DEFAULT;
   const database = await ensureDb();
 
   if (!database) {
-    // Offline fallback — mirror local store, no pagination
-    const storeUnsub = store.subscribe(collectionName, (data) => {
-      const filtered = Array.isArray(data)
-        ? data.filter(item => !classId || item.classId === classId)
-        : [];
-      onUpdate(filtered, false);
-    });
-    activeSubscriptions.set(collectionName, storeUnsub);
-
-    const initial = (store.get(collectionName) || [])
-      .filter(item => !classId || item.classId === classId);
-    onUpdate(initial, false);
-    return { loadMore: async () => {}, hasMore: false };
+    const list = store.get(collectionName) || [];
+    if (onUpdate) onUpdate(list, false);
+    return { loadMore: async () => {}, unsubscribe: () => {} };
   }
 
-  const { collection, query, where, limit, onSnapshot, getDocs, startAfter } =
+  const { collection, onSnapshot, query, where, orderBy, limit, startAfter, getDocs } =
     await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
 
-  const queryConstraints = [];
-  // Campus gallery is school-wide; other collections filter by classId if provided
-  if (collectionName !== 'gallery' && classId) {
-    queryConstraints.push(where('classId', '==', classId));
-  }
-  queryConstraints.push(limit(pageSize));
+  let lastDoc = null;
+  let hasMorePages = false;
+  let firstPageItems = [];
+  let appendedItems = [];
 
-  const baseQuery = () => query(
-    collection(database, collectionName),
-    ...queryConstraints
-  );
+  const buildBaseQuery = (limitCount, afterCursor = null) => {
+    const coll = collection(database, collectionName);
+    const clauses = [];
+    if (classId && collectionName !== 'teachers') clauses.push(where('classId', '==', classId));
+    if (collectionName === 'students') clauses.push(where('verified', '==', true));
 
-  function sortItems(arr) {
-    return arr.sort((a, b) => {
-      const getT = (obj) => {
-        if (!obj?.createdAt) return 0;
-        if (typeof obj.createdAt.toMillis === 'function') return obj.createdAt.toMillis();
-        if (typeof obj.createdAt === 'number') return obj.createdAt;
-        return new Date(obj.createdAt).getTime() || 0;
-      };
-      return getT(b) - getT(a);
-    });
-  }
+    const sortField = (collectionName === 'superlatives' || collectionName === 'memories' || collectionName === 'gallery') ? 'createdAt' : 'name';
+    clauses.push(orderBy(sortField, sortField === 'createdAt' ? 'desc' : 'asc'));
+    if (afterCursor) clauses.push(startAfter(afterCursor));
+    clauses.push(limit(limitCount));
+    return query(coll, ...clauses);
+  };
 
-  let lastVisible = null;
-  let _hasMore = true;
+  const publishCombined = () => {
+    const combined = [...firstPageItems, ...appendedItems];
+    store.set(collectionName, combined, false);
+    if (onUpdate) onUpdate(combined, hasMorePages);
+  };
 
-  // Live first-page listener
-  let unsub;
-  try {
-    unsub = onSnapshot(baseQuery(), (snapshot) => {
-      const items = sortItems(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
-      lastVisible = snapshot.docs[snapshot.docs.length - 1] || null;
-      _hasMore = snapshot.docs.length >= pageSize;
-      store.set(collectionName, items, false);
-      onUpdate(items, _hasMore);
-    }, (err) => {
-      showListError(collectionName, `${err.message}. Try refreshing.`);
-    });
-  } catch (err) {
-    showListError(collectionName, `Query failed: ${err.message}`);
-    return { loadMore: async () => {}, hasMore: false };
-  }
+  const unsub = onSnapshot(buildBaseQuery(pageSize), (snapshot) => {
+    firstPageItems = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    lastDoc = snapshot.docs[snapshot.docs.length - 1] || null;
+    hasMorePages = snapshot.docs.length === pageSize;
+    publishCombined();
+  }, (err) => {
+    showListError(collectionName, err.message || 'Permission denied or connection lost.');
+  });
 
   activeSubscriptions.set(collectionName, unsub);
 
-  /** Fetch the next page using a cursor (P0-5). */
-  async function loadMore() {
-    if (!lastVisible || !_hasMore) return;
-
-    const moreConstraints = [...queryConstraints, startAfter(lastVisible)];
-    const nextQuery = query(
-      collection(database, collectionName),
-      ...moreConstraints
-    );
-
+  const loadMore = async () => {
+    if (!lastDoc || !hasMorePages) return;
     try {
-      const snap = await getDocs(nextQuery);
-      const newItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      lastVisible = snap.docs[snap.docs.length - 1] || lastVisible;
-      _hasMore = snap.docs.length >= pageSize;
-
-      const current = store.get(collectionName) || [];
-      const merged = sortItems([...current, ...newItems]);
-      store.set(collectionName, merged, false);
-      onUpdate(merged, _hasMore);
+      const snap = await getDocs(buildBaseQuery(pageSize, lastDoc));
+      const nextItems = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+      lastDoc = snap.docs[snap.docs.length - 1] || null;
+      hasMorePages = snap.docs.length === pageSize;
+      appendedItems = [...appendedItems, ...nextItems];
+      publishCombined();
     } catch (err) {
-      showListError(collectionName, `Load more failed: ${err.message}`);
+      console.error(`[Firestore:${collectionName}:loadMore]`, err);
     }
-  }
-
-  return {
-    loadMore,
-    get hasMore() { return _hasMore; }
   };
+
+  return { loadMore, unsubscribe: () => unsubscribeCollection(collectionName), get hasMore() { return hasMorePages; } };
 }
 
-/** Tear down the live listener for a given collection. */
 export function unsubscribeCollection(collectionName) {
-  if (activeSubscriptions.has(collectionName)) {
-    const unsub = activeSubscriptions.get(collectionName);
-    if (typeof unsub === 'function') unsub();
+  const unsub = activeSubscriptions.get(collectionName);
+  if (unsub) {
+    unsub();
     activeSubscriptions.delete(collectionName);
   }
 }
 
-/** Tear down all active listeners (used on sign-out). */
-export function unsubscribeAll() {
-  activeSubscriptions.forEach((unsub) => {
-    if (typeof unsub === 'function') unsub();
-  });
-  activeSubscriptions.clear();
-}
-
-/** Create a document, optionally with a custom ID. */
-export async function createDocument(collectionName, data, customId = null) {
+export async function createDocument(collectionName, data, withClass = true) {
   const database = await ensureDb();
   if (!database) {
-    const id = customId || `${collectionName}-${Date.now()}`;
-    const newItem = { id, ...data, createdAt: Date.now() };
+    const newItem = { id: `local_${Date.now()}`, ...data, createdAt: new Date() };
     store.update(collectionName, list => [newItem, ...(list || [])]);
-    return id;
+    return newItem;
   }
-
-  const { collection, doc, addDoc, setDoc, serverTimestamp } =
-    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-
+  const { collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   const payload = { ...data, createdAt: serverTimestamp() };
-
-  if (customId) {
-    const docRef = doc(database, collectionName, customId);
-    await setDoc(docRef, payload);
-    return customId;
-  }
-  const colRef = collection(database, collectionName);
-  const docRef = await addDoc(colRef, payload);
-  return docRef.id;
+  if (withClass && !payload.classId) payload.classId = store.get('currentClassId') || '';
+  const ref = await addDoc(collection(database, collectionName), payload);
+  return { id: ref.id, ...payload };
 }
 
-/** Update specific fields on an existing document. */
 export async function updateDocument(collectionName, docId, updates) {
   const database = await ensureDb();
   if (!database) {
-    store.update(collectionName, list =>
-      (list || []).map(item => item.id === docId ? { ...item, ...updates } : item)
-    );
+    store.update(collectionName, list => (list || []).map(item => item.id === docId ? { ...item, ...updates } : item));
     return;
   }
-  const { doc, updateDoc } =
-    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  const { doc, updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   await updateDoc(doc(database, collectionName, docId), updates);
 }
 
-/**
- * Atomically set or delete the caller's own key inside a map field.
- * value=null → deleteField (un-vote / un-react).
- * P0-7: own-key removal path is validated by rules first.
- */
 export async function setOwnMapKey(collectionName, docId, mapName, uidKey, value) {
   const database = await ensureDb();
-  if (!database) {
-    store.update(collectionName, list => (list || []).map(item => {
-      if (item.id !== docId) return item;
-      const map = { ...(item[mapName] || {}) };
-      if (value === null || value === undefined) {
-        delete map[uidKey];
-      } else {
-        map[uidKey] = value;
-      }
-      return { ...item, [mapName]: map };
-    }));
-    return;
-  }
-
-  const { doc, updateDoc, deleteField } =
-    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-
+  if (!database) return;
+  const { doc, updateDoc, deleteField } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   const fieldPath = `${mapName}.${uidKey}`;
-  const update = (value === null || value === undefined)
-    ? { [fieldPath]: deleteField() }
-    : { [fieldPath]: value };
-
+  const update = (value === null || value === undefined) ? { [fieldPath]: deleteField() } : { [fieldPath]: value };
   await updateDoc(doc(database, collectionName, docId), update);
 }
 
-/** Delete a document by ID. */
 export async function deleteDocument(collectionName, docId) {
   const database = await ensureDb();
   if (!database) {
-    store.update(collectionName, list =>
-      (list || []).filter(item => item.id !== docId)
-    );
-    try { localStorage.removeItem(`local_${collectionName}_${docId}`); } catch {}
+    store.update(collectionName, list => (list || []).filter(item => item.id !== docId));
     return;
   }
-  const { doc, deleteDoc } =
-    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   await deleteDoc(doc(database, collectionName, docId));
 }
 
-/** Fetch a single document by ID (Phase 1). */
 export async function getDocument(collectionName, docId) {
   const database = await ensureDb();
-  if (!database) {
-    try {
-      const raw = localStorage.getItem(`local_${collectionName}_${docId}`);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }
-  const { doc, getDoc } =
-    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  if (!database) return null;
+  const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   const snap = await getDoc(doc(database, collectionName, docId));
   return snap.exists() ? { id: snap.id, ...snap.data() } : null;
 }
 
-/** Set/overwrite a single document with specific ID (Phase 1). */
 export async function setDocument(collectionName, docId, data, withTimestamp = false, timestampField = 'updatedAt') {
   const database = await ensureDb();
-  if (!database) {
-    const payload = { id: docId, ...data, ...(withTimestamp ? { [timestampField]: Date.now() } : {}) };
-    try { localStorage.setItem(`local_${collectionName}_${docId}`, JSON.stringify(payload)); } catch {}
-    return payload;
-  }
-  const { doc, setDoc, serverTimestamp } =
-    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  if (!database) return { id: docId, ...data };
+  const { doc, setDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   const payload = { ...data, ...(withTimestamp ? { [timestampField]: serverTimestamp() } : {}) };
   await setDoc(doc(database, collectionName, docId), payload);
   return payload;
 }
 
-/** Atomic batch write executor (Phase 1, section 4.5). */
 export async function runBatchWrite(operations) {
   const database = await ensureDb();
-  if (!database) {
-    operations.forEach(op => {
-      if (op.type === 'set') {
-        setDocument(op.collection, op.id, op.data, op.withTimestamp, op.timestampField || 'createdAt');
-      } else if (op.type === 'update') {
-        updateDocument(op.collection, op.id, op.data);
-      } else if (op.type === 'delete') {
-        deleteDocument(op.collection, op.id);
-      }
-    });
-    return;
-  }
-
-  const { doc, writeBatch, serverTimestamp } =
-    await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-
+  if (!database) return;
+  const { doc, writeBatch, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   const batch = writeBatch(database);
   operations.forEach(op => {
     const ref = doc(database, op.collection, op.id);
     if (op.type === 'set') {
       const tsField = op.timestampField || 'createdAt';
       const payload = { ...op.data, ...(op.withTimestamp ? { [tsField]: serverTimestamp() } : {}) };
-      batch.set(ref, payload);
+      batch.set(ref, payload, op.merge ? { merge: true } : undefined);
     } else if (op.type === 'update') {
       batch.update(ref, op.data);
     } else if (op.type === 'delete') {
       batch.delete(ref);
     }
   });
-
   await batch.commit();
 }

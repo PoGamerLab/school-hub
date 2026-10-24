@@ -8,7 +8,7 @@ export function renderTeacherCard(tch) {
   const safeRoom = escapeHtml(tch.room);
 
   const imgHtml = tch.img 
-    ? `<img src="${escapeAttr(tch.img)}" alt="${safeName}" class="teacher-photo-img" onerror="this.remove()">`
+    ? `<img src="${escapeAttr(tch.img)}" alt="${safeName}" class="teacher-photo-img" loading="lazy">`
     : '';
 
   return `

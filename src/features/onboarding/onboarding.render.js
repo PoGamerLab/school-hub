@@ -35,7 +35,8 @@ export function renderWizardShell(isAdmin = false) {
           <div class="form-row">
             <div class="form-group form-col">
               <label for="w-house">APSACS House *</label>
-              <select id="w-house">
+              <select id="w-house" required>
+                <option value="" disabled selected>Select your house...</option>
                 <option value="Unity">🔵 Unity House (Ittehad)</option>
                 <option value="Faith">🔴 Faith House (Yaqeen)</option>
                 <option value="Discipline">🟠 Discipline House (Tanzeem)</option>
@@ -44,7 +45,8 @@ export function renderWizardShell(isAdmin = false) {
             </div>
             <div class="form-group form-col">
               <label for="w-group">Academic Group / Stream *</label>
-              <select id="w-group">
+              <select id="w-group" required>
+                <option value="" disabled selected>Select academic group...</option>
                 <option value="Pre-Medical">Science — Pre-Medical</option>
                 <option value="Pre-Engineering">Science — Pre-Engineering</option>
                 <option value="Computer Science">Science — Computer Science / ICS</option>
@@ -55,12 +57,14 @@ export function renderWizardShell(isAdmin = false) {
 
           <div class="form-group">
             <label for="w-category">Primary Interest / Activity *</label>
-            <select id="w-category">
+            <select id="w-category" required>
+              <option value="" disabled selected>Select primary activity...</option>
               <option value="Sports">Sports &amp; Athletics</option>
-              <option value="Debates">Debating &amp; Public Speaking</option>
-              <option value="Coding">Coding &amp; STEM Robotics</option>
-              <option value="Music">Music &amp; Qirat / Naat</option>
-              <option value="Art">Calligraphy &amp; Fine Arts</option>
+              <option value="Academics">Academics &amp; Science</option>
+              <option value="Arts">Calligraphy &amp; Fine Arts</option>
+              <option value="Leadership">Leadership &amp; Scouting</option>
+              <option value="Tech">Coding &amp; STEM Robotics</option>
+              <option value="Music">Music, Qirat &amp; Naat</option>
             </select>
           </div>
         </div>
@@ -78,7 +82,8 @@ export function renderWizardShell(isAdmin = false) {
           <div class="form-row">
             <div class="form-group form-col">
               <label for="w-subject">Favourite Subject *</label>
-              <select id="w-subject">
+              <select id="w-subject" required>
+                <option value="" disabled selected>Select favourite subject...</option>
                 <option value="Computer Science">Computer Science</option>
                 <option value="Mathematics">Mathematics</option>
                 <option value="Physics">Physics</option>
@@ -95,7 +100,8 @@ export function renderWizardShell(isAdmin = false) {
             </div>
             <div class="form-group form-col">
               <label for="w-tags">Main Hobby / Passion *</label>
-              <select id="w-tags">
+              <select id="w-tags" required>
+                <option value="" disabled selected>Select main hobby...</option>
                 <option value="Cricket">Cricket</option>
                 <option value="Football">Football</option>
                 <option value="Coding & STEM">Coding &amp; STEM Robotics</option>

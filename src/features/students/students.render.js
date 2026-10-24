@@ -1,21 +1,53 @@
 import { escapeHtml, escapeAttr } from '../../core/utils/escapeHtml.js';
+import { renderAvatarHtml, bindAvatarFallbacks } from '../../components/avatar/avatar.js';
+import { authService } from '../../core/auth/auth.js';
+import { store } from '../../core/store/store.js';
+
+const SAFE_HOUSE_MAP = {
+  'Unity': 'house-unity',
+  'Faith': 'house-faith',
+  'Discipline': 'house-discipline',
+  'Tolerance': 'house-tolerance'
+};
+
+const HOUSE_ICONS = {
+  'Unity': '🔵',
+  'Faith': '🔴',
+  'Discipline': '🟠',
+  'Tolerance': '🟡'
+};
+
+function getSafeHouseInfo(rawHouse) {
+  const house = SAFE_HOUSE_MAP[rawHouse] ? rawHouse : 'Unity';
+  return {
+    house,
+    houseClass: SAFE_HOUSE_MAP[house],
+    houseIcon: HOUSE_ICONS[house] || '🔵'
+  };
+}
 
 export function renderStudentCard(student) {
   const safeId = escapeAttr(student.id || student.uid);
   const safeName = escapeHtml(student.name);
-  const safeInitials = escapeHtml(student.initials || 'ST');
-  const gradientClass = `gradient-${typeof student.gradientIndex === 'number' ? student.gradientIndex : 0}`;
-  const house = student.house || 'Unity';
-  const houseClass = `house-${house.toLowerCase()}`;
-  const houseIcons = { Unity: '🔵', Faith: '🔴', Discipline: '🟠', Tolerance: '🟡' };
-  const houseIcon = houseIcons[house] || '🔵';
-  const groupText = escapeHtml(student.group || student.category || 'Science');
+  const safeInitials = student.initials || 'ST';
+  const { house, houseClass, houseIcon } = getSafeHouseInfo(student.house);
+  const groupText = escapeHtml(student.group || student.category || 'Science Group');
   const classText = escapeHtml((student.classId || '10-B').toUpperCase());
+
+  const avatarHtml = renderAvatarHtml({
+    photoSource: student.photoSource,
+    photoThumb: student.photoThumb,
+    googlePhotoUrl: student.googlePhotoUrl,
+    initials: safeInitials,
+    gradientIndex: student.gradientIndex,
+    size: 'lg',
+    alt: student.name
+  });
 
   return `
     <div class="card" data-id="${safeId}">
-      <div class="card-photo ${gradientClass}">
-        ${safeInitials}
+      <div class="card-photo">
+        ${avatarHtml}
         <span class="card-class-tag">${classText}</span>
       </div>
       <div class="card-body">
@@ -60,10 +92,11 @@ export function renderProfileView(student, currentUid = null) {
     return;
   }
 
-  const isOwner = currentUid && (student.id === currentUid || student.ownerUid === currentUid);
   const safeId = escapeAttr(student.id || student.uid);
+  const isOwner = user && (student.id === user.uid || student.ownerUid === user.uid);
+  const { house, houseClass, houseIcon } = getSafeHouseInfo(student.house);
 
-  if (profileTag) profileTag.textContent = student.house ? `${student.house.toUpperCase()} HOUSE` : 'APSACIAN';
+  if (profileTag) profileTag.textContent = `${house.toUpperCase()} HOUSE`;
 
   const birthdayVal = student.showBirthday && student.birthday 
     ? escapeHtml(student.birthday) 
@@ -73,20 +106,33 @@ export function renderProfileView(student, currentUid = null) {
     ? escapeHtml(student.contact) 
     : `<span class="field-private">Private / Not shared</span>`;
 
-  const gradientClass = `gradient-${typeof student.gradientIndex === 'number' ? student.gradientIndex : 0}`;
-  const house = student.house || 'Unity';
-  const houseClass = `house-${house.toLowerCase()}`;
-  const houseIcons = { Unity: '🔵', Faith: '🔴', Discipline: '🟠', Tolerance: '🟡' };
-  const houseIcon = houseIcons[house] || '🔵';
   const classText = escapeHtml((student.classId || '10-B').toUpperCase());
+
+  // Check if photo reports exceeded autohide threshold (3+)
+  const photoReportsCount = Object.keys(student.photoReports || {}).length;
+  const photoHiddenByModeration = photoReportsCount >= 3 && !isAdmin && !isOwner;
+
+  const avatarHtml = renderAvatarHtml({
+    photoSource: photoHiddenByModeration ? 'none' : student.photoSource,
+    photoThumb: student.photoThumb,
+    googlePhotoUrl: student.googlePhotoUrl,
+    initials: student.initials || 'ST',
+    gradientIndex: student.gradientIndex,
+    size: 'xl',
+    alt: student.name,
+    className: 'profile-avatar-xl'
+  });
 
   if (profileContainer) {
     profileContainer.innerHTML = `
-      <div>
-        <div class="profile-photo ${gradientClass}">
-          ${escapeHtml(student.initials || 'ST')}
+      <div class="profile-photo-col">
+        <div class="profile-photo-wrap">
+          ${avatarHtml}
           <div class="peak-tag">APSACian &mdash; ${escapeHtml(student.name)}</div>
         </div>
+        ${photoHiddenByModeration ? `
+          <div class="notice-badge notice-warning">⚠️ Photo under review</div>
+        ` : ''}
       </div>
       <div class="profile-main">
         <div class="apsac-badge">Verified APSACian &middot; APSACS Skardu</div>
@@ -96,6 +142,14 @@ export function renderProfileView(student, currentUid = null) {
             ${isOwner ? `
               <button class="btn btn-sm btn-outline" id="edit-my-profile-btn">
                 ✏️ Edit Profile
+              </button>
+              <button class="btn btn-sm btn-outline" id="change-photo-btn">
+                📷 Change Photo
+              </button>
+            ` : ''}
+            ${!isOwner && user ? `
+              <button class="btn btn-sm btn-ghost" id="report-profile-photo-btn" data-uid="${safeId}">
+                🚩 Report Photo
               </button>
             ` : ''}
             ${isAdmin ? `
@@ -125,5 +179,7 @@ export function renderProfileView(student, currentUid = null) {
         </div>
       </div>
     `;
+
+    bindAvatarFallbacks(profileContainer);
   }
 }
