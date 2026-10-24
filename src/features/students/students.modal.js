@@ -3,7 +3,7 @@ import { authService } from '../../core/auth/auth.js';
 import { router } from '../../core/router/router.js';
 import { showToast } from '../../components/toast/toast.js';
 import { extractInitials } from '../../core/utils/ids.js';
-import { createDocument, updateDocument } from '../../core/db/firestore.js';
+import { updateDocument, setDocument, getDocument } from '../../core/db/firestore.js';
 
 export function openProfileModal(existingProfile = null) {
   const user = authService.getCurrentUser();
@@ -143,7 +143,6 @@ export function initProfileForm() {
       favSubject,
       favQuote: favQuote ? (favQuote.startsWith('"') ? favQuote : `"${favQuote}"`) : '',
       funFact,
-      gradientIndex: Math.floor(Math.random() * 8),
       initials: extractInitials(name),
       showBirthday,
       showContact,
@@ -151,17 +150,38 @@ export function initProfileForm() {
       verified: true
     };
 
-    if (showBirthday && birthday) payload.birthday = birthday;
-    if (showContact && contact) payload.contact = contact;
+    // Always send birthday/contact fields — empty string when hidden
+    // so the rule can see showBirthday==false with birthday=='' (allowed)
+    payload.birthday = (showBirthday && birthday) ? birthday : '';
+    payload.contact  = (showContact  && contact)  ? contact  : '';
 
-    const isExisting = (store.get('students') || []).some(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
+    const existingStudents = store.get('students') || [];
+    const existingRecord = existingStudents.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
+    const isExisting = !!existingRecord;
+
+    if (isExisting) {
+      // Preserve immutable fields from existing record
+      payload.createdAt     = existingRecord.createdAt;
+      payload.gradientIndex = existingRecord.gradientIndex ?? Math.floor(Math.random() * 8);
+      payload.photoSource   = existingRecord.photoSource   || 'none';
+      payload.photoThumb    = existingRecord.photoThumb    || '';
+      payload.googlePhotoUrl = existingRecord.googlePhotoUrl || '';
+      payload.photoReports  = existingRecord.photoReports  || {};
+    } else {
+      payload.gradientIndex = Math.floor(Math.random() * 8);
+      payload.photoSource   = 'none';
+      payload.photoThumb    = '';
+      payload.googlePhotoUrl = '';
+      payload.photoReports  = {};
+    }
 
     try {
       if (isExisting) {
         await updateDocument('students', user.uid, payload);
         showToast('Profile updated successfully!', 'success');
       } else {
-        await createDocument('students', payload, user.uid);
+        // Student doc must be at students/{uid} — use setDocument with uid as key
+        await setDocument('students', user.uid, { ...payload, createdAt: null }, true, 'createdAt');
         showToast(`Profile published for ${name}!`, 'success');
       }
 

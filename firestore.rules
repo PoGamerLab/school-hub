@@ -183,6 +183,7 @@ service cloud.firestore {
           request.resource.data.title is string && request.resource.data.title.size() > 0 && request.resource.data.title.size() <= 100 &&
           request.resource.data.body is string && request.resource.data.body.size() > 0 && request.resource.data.body.size() <= 1000 &&
           request.resource.data.authorUid == request.auth.uid &&
+          request.resource.data.authorName is string && request.resource.data.authorName.size() > 0 && request.resource.data.authorName.size() <= 80 &&
           (!('pinned' in request.resource.data) || request.resource.data.pinned is bool) &&
           request.resource.data.createdAt == request.time &&
           (isAdmin() || (exists(/databases/$(database)/documents/classes/$(classId)) && get(/databases/$(database)/documents/classes/$(classId)).data.monitorUid == request.auth.uid));
@@ -194,9 +195,10 @@ service cloud.firestore {
     // --- 7b. chatState/{uid} (Rate limit tracking doc: 1 write per message) ---
     match /chatState/{uid} {
       allow read: if isOwner(uid) || isAdmin();
-      allow write: if isOwner(uid) &&
-        request.resource.data.keys().hasOnly(['lastMessageAt']) &&
-        request.resource.data.lastMessageAt == request.time;
+      allow write: if isOwner(uid) && isActive() &&
+        request.resource.data.keys().hasOnly(['lastMessageAt', 'lastMessageId']) &&
+        request.resource.data.lastMessageAt == request.time &&
+        (!('lastMessageId' in request.resource.data) || (request.resource.data.lastMessageId is string && request.resource.data.lastMessageId.size() <= 100));
     }
 
     // --- 7c. classChats/{classId}/messages/{msgId} (Phase C: Rate-limited, safe class chat) ---
@@ -213,6 +215,8 @@ service cloud.firestore {
         (!('mutedUntil' in getUser()) || request.time >= getUser().mutedUntil) &&
         existsAfter(/databases/$(database)/documents/chatState/$(request.auth.uid)) &&
         getAfter(/databases/$(database)/documents/chatState/$(request.auth.uid)).data.lastMessageAt == request.time &&
+        (!('lastMessageId' in getAfter(/databases/$(database)/documents/chatState/$(request.auth.uid)).data) ||
+         getAfter(/databases/$(database)/documents/chatState/$(request.auth.uid)).data.lastMessageId == msgId) &&
         (!exists(/databases/$(database)/documents/chatState/$(request.auth.uid)) ||
          request.time >= get(/databases/$(database)/documents/chatState/$(request.auth.uid)).data.lastMessageAt + duration.value(5, 's'));
       allow update: if isActive() && inMyClass(classId) && siteWritable() &&
@@ -268,18 +272,16 @@ service cloud.firestore {
         request.resource.data.showBirthday is bool &&
         request.resource.data.showContact is bool &&
         (!('showInDirectory' in request.resource.data) || request.resource.data.showInDirectory is bool) &&
-        (!('birthday' in request.resource.data) || (request.resource.data.showBirthday == true && request.resource.data.birthday is string && request.resource.data.birthday.size() <= 30)) &&
-        (!('contact' in request.resource.data) || (request.resource.data.showContact == true && request.resource.data.contact is string && request.resource.data.contact.size() <= 60)) &&
+        (!('birthday' in request.resource.data) || request.resource.data.birthday == '' || (request.resource.data.showBirthday == true && request.resource.data.birthday is string && request.resource.data.birthday.size() <= 30)) &&
+        (!('contact' in request.resource.data) || request.resource.data.contact == '' || (request.resource.data.showContact == true && request.resource.data.contact is string && request.resource.data.contact.size() <= 60)) &&
         (!('photoSource' in request.resource.data) || request.resource.data.photoSource in ['none', 'upload', 'google']) &&
-        (!('photoThumb' in request.resource.data) || (
-          request.resource.data.photoSource == 'upload' &&
+        (!('photoThumb' in request.resource.data) || request.resource.data.photoThumb == '' || (
           request.resource.data.photoThumb is string &&
           request.resource.data.photoThumb.size() <= 8000 &&
           request.resource.data.photoThumb.matches('^data:image/jpeg;base64,.*') &&
-          existsAfter(/databases/$(database)/documents/avatars/$(uid))
+          (request.resource.data.photoSource == 'upload' ? existsAfter(/databases/$(database)/documents/avatars/$(uid)) : true)
         )) &&
-        (!('googlePhotoUrl' in request.resource.data) || (
-          request.resource.data.photoSource == 'google' &&
+        (!('googlePhotoUrl' in request.resource.data) || request.resource.data.googlePhotoUrl == '' || (
           request.resource.data.googlePhotoUrl is string &&
           request.resource.data.googlePhotoUrl.size() <= 300 &&
           request.resource.data.googlePhotoUrl.matches('^https://lh3\\.googleusercontent\\.com/.*')
@@ -291,12 +293,16 @@ service cloud.firestore {
       allow update: if siteWritable() && isActive() && (
         // Admin update
         isAdmin() ||
-        // Owner update (cannot tamper with verified, classId, ownerUid)
+        // Owner update (cannot tamper with verified, classId, ownerUid, createdAt, or photoReports)
         (
           resource.data.ownerUid == request.auth.uid &&
           request.resource.data.ownerUid == resource.data.ownerUid &&
           request.resource.data.classId == resource.data.classId &&
           request.resource.data.verified == resource.data.verified &&
+          request.resource.data.createdAt == resource.data.createdAt &&
+          ((!('photoReports' in resource.data) && (!('photoReports' in request.resource.data) || request.resource.data.photoReports == {})) ||
+           request.resource.data.photoReports == resource.data.photoReports) &&
+          (!('photoUpdatedAt' in request.resource.data) || request.resource.data.photoUpdatedAt == request.time) &&
           request.resource.data.keys().hasOnly([
             'name', 'roll', 'category', 'tags', 'bio', 'favSubject', 'favQuote', 'funFact',
             'gradientIndex', 'initials', 'classId', 'ownerUid', 'showBirthday', 'showContact',
@@ -318,17 +324,16 @@ service cloud.firestore {
           request.resource.data.showBirthday is bool &&
           request.resource.data.showContact is bool &&
           (!('showInDirectory' in request.resource.data) || request.resource.data.showInDirectory is bool) &&
-          (!('birthday' in request.resource.data) || (request.resource.data.showBirthday == true && request.resource.data.birthday is string && request.resource.data.birthday.size() <= 30)) &&
-          (!('contact' in request.resource.data) || (request.resource.data.showContact == true && request.resource.data.contact is string && request.resource.data.contact.size() <= 60)) &&
+          (!('birthday' in request.resource.data) || request.resource.data.birthday == '' || (request.resource.data.showBirthday == true && request.resource.data.birthday is string && request.resource.data.birthday.size() <= 30)) &&
+          (!('contact' in request.resource.data) || request.resource.data.contact == '' || (request.resource.data.showContact == true && request.resource.data.contact is string && request.resource.data.contact.size() <= 60)) &&
           (!('photoSource' in request.resource.data) || request.resource.data.photoSource in ['none', 'upload', 'google']) &&
-          (!('photoThumb' in request.resource.data) || (
-            request.resource.data.photoSource == 'upload' &&
+          (!('photoThumb' in request.resource.data) || request.resource.data.photoThumb == '' || (
             request.resource.data.photoThumb is string &&
             request.resource.data.photoThumb.size() <= 8000 &&
             request.resource.data.photoThumb.matches('^data:image/jpeg;base64,.*') &&
-            existsAfter(/databases/$(database)/documents/avatars/$(uid))
+            (request.resource.data.photoSource == 'upload' ? (exists(/databases/$(database)/documents/avatars/$(uid)) || existsAfter(/databases/$(database)/documents/avatars/$(uid))) : true)
           )) &&
-          (!('googlePhotoUrl' in request.resource.data) || (
+          (!('googlePhotoUrl' in request.resource.data) || request.resource.data.googlePhotoUrl == '' || (
             request.resource.data.photoSource == 'google' &&
             request.resource.data.googlePhotoUrl is string &&
             request.resource.data.googlePhotoUrl.size() <= 300 &&
@@ -338,7 +343,8 @@ service cloud.firestore {
         // Member photo reporting
         (
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoReports']) &&
-          request.resource.data.photoReports.diff(resource.data.photoReports).affectedKeys().hasOnly([request.auth.uid]) &&
+          ((!('photoReports' in resource.data) && request.resource.data.photoReports.keys().hasOnly([request.auth.uid])) ||
+           request.resource.data.photoReports.diff(resource.data.photoReports).affectedKeys().hasOnly([request.auth.uid])) &&
           (!request.resource.data.photoReports.keys().hasAny([request.auth.uid]) || (
             request.resource.data.photoReports[request.auth.uid].keys().hasOnly(['reason', 'details', 'createdAt']) &&
             request.resource.data.photoReports[request.auth.uid].reason in ['inappropriate', 'harassment', 'spam', 'other'] &&

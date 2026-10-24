@@ -80,7 +80,7 @@ export async function logAdminAction(action, targetId = '', detail = '') {
 
     const { collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
     await addDoc(collection(fb.db, 'adminLog'), {
-      adminUid: user.uid,
+      actorUid: user.uid,
       adminName: user.displayName || 'Administrator',
       action,
       targetId: String(targetId || ''),

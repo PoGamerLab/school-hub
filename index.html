@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: https://lh3.googleusercontent.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src https://*.firebaseapp.com https://accounts.google.com;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://www.gstatic.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: https://lh3.googleusercontent.com; connect-src 'self' https://*.firebaseio.com https://*.googleapis.com wss://*.firebaseio.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com; frame-src https://*.firebaseapp.com https://accounts.google.com; base-uri 'self'; form-action 'self';">
   <title>APS ACS Skardu — Official Class Directory &amp; Portal</title>
   <meta name="description" content="APSACS Skardu Class Directory and student portal with memories, superlatives, faculty, and gallery.">
   <link rel="icon" type="image/png" href="images/apsacs-logo.png">
@@ -398,6 +398,21 @@
     </section>
   </div>
 
+  <!-- Screen: Failed Profile Load (E5) -->
+  <div class="screen" id="loading-failed">
+    <section class="section">
+      <div class="gate-container">
+        <span class="gate-badge">Connection Error</span>
+        <h2 class="gate-title">Could Not Load Profile</h2>
+        <div class="gate-notice danger">
+          We encountered an issue communicating with the server to load your school profile. Please check your internet connection and try again.
+        </div>
+        <button class="btn btn-primary btn-full" id="loading-failed-retry-btn">Retry Loading</button>
+        <button class="btn btn-outline btn-full mt-2" id="loading-failed-signout-btn">Sign Out</button>
+      </div>
+    </section>
+  </div>
+
   <!-- Screen 8: Admin Panel (Protected) -->
   <div class="screen" id="admin">
     <section class="section">
@@ -434,9 +449,19 @@
       <!-- Tab 2: Moderation Queue -->
       <div class="admin-tab-pane" id="admin-pane-moderation">
         <div class="admin-card">
-          <h3>Flagged &amp; Reported Items</h3>
+          <h3>Flagged Memories &amp; Superlatives</h3>
           <p class="section-head-subtitle">Student reports on memories and superlatives with reasons. Items remain public until you choose to dismiss or delete.</p>
           <div id="admin-reports-list"></div>
+        </div>
+        <div class="admin-card mt-3">
+          <h3>Flagged Class Chat Messages</h3>
+          <p class="section-head-subtitle">Reported messages across all classes. Delete inappropriate messages, dismiss reports, or mute abusive authors.</p>
+          <div id="admin-chat-reports-list"></div>
+        </div>
+        <div class="admin-card mt-3">
+          <h3>Reported Student Profile Photos</h3>
+          <p class="section-head-subtitle">Student avatars flagged for review. Remove inappropriate photos or dismiss false reports.</p>
+          <div id="admin-photo-reports-list"></div>
         </div>
       </div>
 

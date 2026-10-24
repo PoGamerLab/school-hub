@@ -7,17 +7,18 @@ import { store } from '../store/store.js';
 import { showToast } from '../../components/toast/toast.js';
 
 const SCREEN_ACCESS = {
-  home:         'public',
-  gate:         'public',
-  onboarding:   'public',
-  revoked:      'public',
-  school:       'public',
-  class:        'member',
-  students:     'member',
-  profile:      'member',
-  superlatives: 'member',
-  memories:     'member',
-  admin:        'admin'
+  home:             'public',
+  gate:             'public',
+  onboarding:       'public',
+  revoked:          'public',
+  'loading-failed': 'public',
+  school:           'public',
+  class:            'member',
+  students:         'member',
+  profile:          'member',
+  superlatives:     'member',
+  memories:         'member',
+  admin:            'admin'
 };
 
 class Router {
@@ -116,6 +117,10 @@ class Router {
   }
 
   _resolveStatusRoute(screenId) {
+    if (store.get('profileLoadFailed')) {
+      return 'loading-failed';
+    }
+
     const user = store.get('user');
     const isAdmin = store.get('isAdmin');
 

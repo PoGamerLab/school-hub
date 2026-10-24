@@ -3,6 +3,7 @@ import { authService } from '../../core/auth/auth.js';
 import { router } from '../../core/router/router.js';
 import { showToast } from '../toast/toast.js';
 import { escapeHtml } from '../../core/utils/escapeHtml.js';
+import { renderAvatarHtml, bindAvatarFallbacks } from '../avatar/avatar.js';
 
 export function initNavbar() {
   const container = document.querySelector('.nav-auth');
@@ -107,10 +108,15 @@ export function initNavbar() {
     updateNavVisibility(user);
 
     if (user) {
-      // Build avatar element
-      const avatarHtml = user.photoURL
-        ? `<img src="${escapeHtml(user.photoURL)}" alt="Avatar" class="auth-avatar">`
-        : `<div class="auth-avatar">${escapeHtml((user.displayName || 'U')[0])}</div>`;
+      // Build avatar element using shared helper (Phase D, 6.6)
+      const avatarHtml = renderAvatarHtml({
+        photoSource: user.photoSource || (user.photoURL ? 'google' : 'none'),
+        photoThumb: user.photoThumb || '',
+        googlePhotoUrl: user.photoURL || '',
+        initials: (user.displayName || 'U').slice(0, 2),
+        size: 'sm',
+        className: 'auth-avatar'
+      });
 
       container.innerHTML = `
         <div class="auth-dropdown-wrapper">
@@ -141,6 +147,8 @@ export function initNavbar() {
           </div>
         </div>
       `;
+
+      bindAvatarFallbacks(container);
 
       // Wire up the newly-created elements directly
       const dropdownBtn  = document.getElementById('nav-user-dropdown-btn');

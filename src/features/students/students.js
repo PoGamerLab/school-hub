@@ -2,6 +2,7 @@ import { store } from '../../core/store/store.js';
 import { router } from '../../core/router/router.js';
 import { authService } from '../../core/auth/auth.js';
 import { renderStudentCard, renderProfileView } from './students.render.js';
+import { escapeHtml, escapeAttr } from '../../core/utils/escapeHtml.js';
 import { showToast } from '../../components/toast/toast.js';
 import { subscribeClassCollection, unsubscribeCollection, deleteDocument, updateDocument, runBatchWrite } from '../../core/db/firestore.js';
 import { openProfileModal, initProfileForm } from './students.modal.js';
@@ -183,7 +184,7 @@ export function initStudents() {
           { type: 'delete', collection: 'students', id: targetUid },
           { type: 'delete', collection: 'avatars', id: targetUid },
           { type: 'set', collection: 'users', id: targetUid, data: { status: 'needs_profile', profileDeletedReason: reason.trim(), profileDeletedAt: Date.now() }, merge: true },
-          { type: 'set', collection: 'adminLog', id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, data: { action: 'DELETE_PROFILE', actorUid: user.uid, targetUid, reason: reason.trim(), createdAt: new Date() } }
+          { type: 'set', collection: 'adminLog', id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, data: { action: 'DELETE_PROFILE', actorUid: user.uid, targetUid, reason: reason.trim() }, withTimestamp: true, timestampField: 'createdAt' }
         ]);
         showToast('Student profile deleted atomically.', 'success');
         router.navigate('class');

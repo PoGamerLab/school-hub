@@ -88,25 +88,29 @@ export function initMemories() {
         }
 
         const memoryId = reportBtn.dataset.id;
-        const reason = prompt('Why are you reporting this memory to the administrator?\n(e.g. Inappropriate language, Bullying, False attribution, Spam)');
-        if (!reason || !reason.trim()) {
-          showToast('Report cancelled. A reason is required.', 'info');
-          return;
-        }
-
-        const reportPayload = {
-          reason: reason.trim().slice(0, 200),
-          reporterName: user.displayName || 'Classmate',
-          reportedAt: Date.now()
-        };
+        const rawReason = prompt('Why are you reporting this memory? (inappropriate, harassment, spam, other):', 'inappropriate');
+        if (!rawReason) return;
+        const safeReason = ['inappropriate', 'harassment', 'spam', 'other'].includes(rawReason.toLowerCase().trim())
+          ? rawReason.toLowerCase().trim()
+          : 'other';
+        const details = (prompt('Optional details (up to 200 characters):') || '').slice(0, 200);
 
         try {
-          await setOwnMapKey('memories', memoryId, 'reports', user.uid, reportPayload);
-          showToast('Thank you. Report with reason sent to administrator for review.');
+          const { initFirebase } = await import('../../config/firebase.js');
+          const fb = await initFirebase();
+          const { doc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          const updatePayload = {};
+          updatePayload[`reports.${user.uid}`] = {
+            reason: safeReason,
+            details,
+            createdAt: serverTimestamp()
+          };
+          await updateDoc(doc(fb.db, 'memories', memoryId), updatePayload);
+          showToast('Thank you. Report sent to administrator for review.', 'info');
           render();
         } catch (err) {
           console.error('Report failed:', err);
-          showToast(`Report failed: ${err.message}`, 'error');
+          showToast('Could not submit report.', 'error');
         }
       }
     });

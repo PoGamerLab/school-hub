@@ -4,16 +4,15 @@
 
 import { store } from '../../core/store/store.js';
 import { router } from '../../core/router/router.js';
-import { renderReportedMemoryRow } from './admin.render.js';
 import { showToast } from '../../components/toast/toast.js';
 import { updateDocument, deleteDocument } from '../../core/db/firestore.js';
 import { logAdminAction } from '../../core/siteConfig.js';
 import { loadAndRenderMembers } from './admin.members.js';
 import { loadAndRenderSiteControls, loadAndRenderActivityLog } from './admin.controls.js';
 import { loadAndRenderClassManager, loadAndRenderGateEditor } from './admin.gate.js';
+import { loadAndRenderModerationQueue, attachModerationEvents } from './admin.moderation.js';
 
 export function initAdmin() {
-  const reportsContainer = document.getElementById('admin-reports-list');
   const tabBar = document.getElementById('admin-tab-bar');
 
   function updateAdminVisibility() {
@@ -47,29 +46,18 @@ export function initAdmin() {
       loadAndRenderClassManager();
       loadAndRenderGateEditor();
     } else if (tabKey === 'moderation') {
-      renderReports();
+      loadAndRenderModerationQueue();
     } else if (tabKey === 'members') {
       loadAndRenderMembers();
     } else if (tabKey === 'controls') {
       loadAndRenderSiteControls();
-    } else if (tabKey === 'audit') {
+    } else if (tabKey === 'activity') {
       loadAndRenderActivityLog();
     }
   }
 
-  function renderReports() {
-    if (!reportsContainer) return;
-    const memories = store.get('memories') || [];
-    const reportedMemories = memories.filter(m => m.reports && Object.keys(m.reports).length > 0);
-
-    if (reportedMemories.length === 0) {
-      reportsContainer.innerHTML = '<div class="admin-empty-notice">No reported content to review. Clean board! ✨</div>';
-      return;
-    }
-
-    reportsContainer.innerHTML = reportedMemories.map(m => renderReportedMemoryRow(m, 'memories')).join('');
-  }
-
+  // Dismiss / delete from the memories+superlatives report list
+  const reportsContainer = document.getElementById('admin-reports-list');
   if (reportsContainer) {
     reportsContainer.addEventListener('click', async (e) => {
       const restoreBtn = e.target.closest('[data-action="restore"]');
@@ -77,16 +65,15 @@ export function initAdmin() {
         const id = restoreBtn.dataset.id;
         const type = restoreBtn.dataset.type || 'memories';
         try {
-          await updateDocument(type, id, { reports: {}, adminReviewed: true });
+          await updateDocument(type, id, { reports: {} });
           await logAdminAction('DISMISS_REPORTS', id, `Cleared flags from ${type}`);
           showToast('Reports cleared; item remains active.', 'success');
-          renderReports();
+          loadAndRenderModerationQueue();
         } catch (err) {
           showToast(`Action failed: ${err.message}`, 'error');
         }
         return;
       }
-
       const deleteBtn = e.target.closest('[data-action="delete"]');
       if (deleteBtn) {
         const id = deleteBtn.dataset.id;
@@ -96,7 +83,7 @@ export function initAdmin() {
           await deleteDocument(type, id);
           await logAdminAction('DELETE_POST', id, `Permanently deleted reported ${type}`);
           showToast('Flagged item permanently deleted.', 'info');
-          renderReports();
+          loadAndRenderModerationQueue();
         } catch (err) {
           showToast(`Delete failed: ${err.message}`, 'error');
         }
@@ -105,6 +92,7 @@ export function initAdmin() {
   }
 
   initTabs();
+  attachModerationEvents();
 
   router.registerScreenHook('admin', {
     onEnter: () => {
@@ -115,7 +103,5 @@ export function initAdmin() {
   });
 
   store.subscribe('isAdmin', updateAdminVisibility);
-  store.subscribe('memories', renderReports);
-
   updateAdminVisibility();
 }

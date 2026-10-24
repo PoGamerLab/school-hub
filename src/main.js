@@ -83,6 +83,16 @@ async function boot() {
   document.getElementById('hero-about-btn')
     ?.addEventListener('click', () => router.navigate('school'));
 
+  document.getElementById('revoked-signout-btn')?.addEventListener('click', () => {
+    authService.signOut();
+  });
+  document.getElementById('loading-failed-retry-btn')?.addEventListener('click', () => {
+    window.location.reload();
+  });
+  document.getElementById('loading-failed-signout-btn')?.addEventListener('click', () => {
+    authService.signOut();
+  });
+
   await maybeInitAdmin();
   store.subscribe('isAdmin', async () => {
     await maybeInitAdmin();

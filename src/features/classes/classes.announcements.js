@@ -98,13 +98,15 @@ function attachAnnouncementsEvents(classInfo, canPost) {
         const { collection, addDoc, serverTimestamp } =
           await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
 
+        const students = store.get('students') || [];
+        const studentProfile = students.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
+        const authorName = isAdmin ? 'School Administration' : (studentProfile?.name || 'Class Monitor').slice(0, 80);
+
         await addDoc(collection(fb.db, 'classes', classId, 'announcements'), {
-          title,
-          content,
+          title: title.slice(0, 100),
+          body: content.slice(0, 1000),
           authorUid: user.uid,
-          authorName: user.displayName || 'Class Administration',
-          authorRole,
-          classId,
+          authorName,
           createdAt: serverTimestamp()
         });
 

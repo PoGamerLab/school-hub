@@ -160,29 +160,43 @@ function attachChatEvents(classId) {
 
     const students = store.get('students') || [];
     const studentProfile = students.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
-    const authorName = (studentProfile?.name || user.displayName || 'Student').slice(0, 80);
+    let authorName = studentProfile?.name ? studentProfile.name.slice(0, 80) : '';
 
     const sendBtn = document.getElementById('class-chat-send-btn');
     if (sendBtn) sendBtn.disabled = true;
 
     try {
       const fb = await initFirebase();
-      const { doc, writeBatch, serverTimestamp, collection } =
+      const { doc, getDoc, writeBatch, serverTimestamp, collection } =
         await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+
+      if (!authorName) {
+        try {
+          const sDoc = await getDoc(doc(fb.db, 'students', user.uid));
+          if (sDoc.exists() && sDoc.data()?.name) {
+            authorName = sDoc.data().name.slice(0, 80);
+          }
+        } catch (fetchErr) {
+          console.warn('Could not fetch student doc for author name:', fetchErr);
+        }
+      }
+      if (!authorName) {
+        authorName = (user.displayName || 'Student').slice(0, 80);
+      }
 
       const batch = writeBatch(fb.db);
       const newMsgRef = doc(collection(fb.db, 'classChats', classId, 'messages'));
       const chatStateRef = doc(fb.db, 'chatState', user.uid);
 
       batch.set(newMsgRef, { authorUid: user.uid, authorName, classId, text: text.slice(0, 500), reports: {}, createdAt: serverTimestamp() });
-      batch.set(chatStateRef, { lastMessageAt: serverTimestamp() });
+      batch.set(chatStateRef, { lastMessageAt: serverTimestamp(), lastMessageId: newMsgRef.id });
 
       await batch.commit();
       if (input) input.value = '';
     } catch (err) {
       console.error('Send message error:', err);
       const errMsg = err?.message || '';
-      showToast(errMsg.includes('permission-denied') || errMsg.includes('PERMISSION_DENIED') ? 'Please wait at least 5 seconds between messages.' : 'Failed to send message.', 'error');
+      showToast(errMsg.includes('permission-denied') || errMsg.includes('PERMISSION_DENIED') ? 'Message blocked. Please wait 5s or ensure you are in this class.' : 'Failed to send message.', 'error');
     } finally {
       if (sendBtn) sendBtn.disabled = false;
     }

@@ -66,7 +66,7 @@ function attachMemberEvents(allUsers, classes) {
           await runBatchWrite([
             { type: 'set', collection: 'users', id: uid, data: { status: 'active', banned: false }, merge: true },
             { type: 'set', collection: 'students', id: uid, data: { verified: true }, merge: true },
-            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'APPROVE_USER', actorUid: adminUid, targetUid: uid, note: 'Manually activated account', createdAt: new Date() } }
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'APPROVE_USER', actorUid: adminUid, targetUid: uid, note: 'Manually activated account' }, withTimestamp: true, timestampField: 'createdAt' }
           ]);
           showToast('User membership approved and activated.', 'success');
           await loadAndRenderMembers();
@@ -78,7 +78,7 @@ function attachMemberEvents(allUsers, classes) {
           await runBatchWrite([
             { type: 'delete', collection: 'gate', id: uid },
             { type: 'set', collection: 'users', id: uid, data: { status: 'needs_gate' }, merge: true },
-            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'RESET_GATE', actorUid: adminUid, targetUid: uid, note: 'Cleared gate attempts', createdAt: new Date() } }
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'RESET_GATE', actorUid: adminUid, targetUid: uid, note: 'Cleared gate attempts' }, withTimestamp: true, timestampField: 'createdAt' }
           ]);
           showToast('User gate status reset.', 'info');
           await loadAndRenderMembers();
@@ -89,14 +89,14 @@ function attachMemberEvents(allUsers, classes) {
           }
           await runBatchWrite([
             { type: 'set', collection: 'users', id: uid, data: { banned: true }, merge: true },
-            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'BAN_USER', actorUid: adminUid, targetUid: uid, note: 'User banned from platform', createdAt: new Date() } }
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'BAN_USER', actorUid: adminUid, targetUid: uid, note: 'User banned from platform' }, withTimestamp: true, timestampField: 'createdAt' }
           ]);
           showToast('User banned.', 'error');
           await loadAndRenderMembers();
         } else if (action === 'unban-user') {
           await runBatchWrite([
             { type: 'set', collection: 'users', id: uid, data: { banned: false }, merge: true },
-            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'UNBAN_USER', actorUid: adminUid, targetUid: uid, note: 'User unbanned', createdAt: new Date() } }
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'UNBAN_USER', actorUid: adminUid, targetUid: uid, note: 'User unbanned' }, withTimestamp: true, timestampField: 'createdAt' }
           ]);
           showToast('User unbanned.', 'success');
           await loadAndRenderMembers();
@@ -107,7 +107,7 @@ function attachMemberEvents(allUsers, classes) {
           }
           await runBatchWrite([
             { type: 'set', collection: 'users', id: uid, data: { status: 'revoked' }, merge: true },
-            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'REVOKE_USER', actorUid: adminUid, targetUid: uid, note: 'User status set to revoked', createdAt: new Date() } }
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'REVOKE_USER', actorUid: adminUid, targetUid: uid, note: 'User status set to revoked' }, withTimestamp: true, timestampField: 'createdAt' }
           ]);
           showToast('User access revoked.', 'info');
           await loadAndRenderMembers();
@@ -122,7 +122,7 @@ function attachMemberEvents(allUsers, classes) {
             { type: 'delete', collection: 'students', id: uid },
             { type: 'delete', collection: 'avatars', id: uid },
             { type: 'set', collection: 'users', id: uid, data: { status: 'needs_profile', profileDeletedReason: reason.trim(), profileDeletedAt: Date.now() }, merge: true },
-            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'DELETE_PROFILE', actorUid: adminUid, targetUid: uid, reason: reason.trim(), createdAt: new Date() } }
+            { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'DELETE_PROFILE', actorUid: adminUid, targetUid: uid, reason: reason.trim() }, withTimestamp: true, timestampField: 'createdAt' }
           ]);
           showToast('Student profile deleted. Student must recreate it on next visit.', 'success');
           await loadAndRenderMembers();
@@ -150,7 +150,7 @@ function attachMemberEvents(allUsers, classes) {
         await runBatchWrite([
           { type: 'set', collection: 'users', id: uid, data: { classId: newClassId }, merge: true },
           { type: 'set', collection: 'students', id: uid, data: { classId: newClassId }, merge: true },
-          { type: 'set', collection: 'adminLog', id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, data: { action: 'MOVE_CLASS', actorUid: adminUid, targetUid: uid, newClassId, createdAt: new Date() } }
+          { type: 'set', collection: 'adminLog', id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, data: { action: 'MOVE_CLASS', actorUid: adminUid, targetUid: uid, newClassId }, withTimestamp: true, timestampField: 'createdAt' }
         ]);
         showToast(`User moved to class ${newClassId}.`, 'success');
         await loadAndRenderMembers();

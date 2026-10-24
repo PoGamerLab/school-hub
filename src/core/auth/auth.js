@@ -102,9 +102,11 @@ class AuthService {
 
       let userData;
       if (!userSnap.exists()) {
+        const rawPhoto = firebaseUser.photoURL || '';
+        const safePhotoURL = (rawPhoto.length <= 300 && /^https:\/\/lh3\.googleusercontent\.com\/.*/.test(rawPhoto)) ? rawPhoto : '';
         userData = {
           displayName: (firebaseUser.displayName || 'Classmate').slice(0, 80),
-          photoURL: firebaseUser.photoURL || '',
+          photoURL: safePhotoURL,
           classId: '',
           role: 'member',
           points: 0,
@@ -128,6 +130,7 @@ class AuthService {
       }
 
       const isAdmin = !!(adminSnap && adminSnap.exists());
+      store.set('profileLoadFailed', false, false);
       hideProfileErrorBanner();
 
       // Admins always get treated as active even if status field is missing/wrong
@@ -146,8 +149,14 @@ class AuthService {
         status: effectiveStatus,
         onboardingStep: userData.onboardingStep || 0,
         profileDeletedReason: userData.profileDeletedReason || null,
+        mutedUntil: userData.mutedUntil || null,
+        photoRemovedNotice: userData.photoRemovedNotice || null,
         isAdmin
       });
+
+      if (userData.photoRemovedNotice) {
+        showToast(userData.photoRemovedNotice, 'error');
+      }
 
       // Listen for real-time status/ban changes (multi-tab sync, admin actions)
       if (this._userUnsub) {
@@ -170,6 +179,8 @@ class AuthService {
           status: currentEffectiveStatus,
           onboardingStep: currentData.onboardingStep || 0,
           profileDeletedReason: currentData.profileDeletedReason || null,
+          mutedUntil: currentData.mutedUntil || null,
+          photoRemovedNotice: currentData.photoRemovedNotice || null,
           isAdmin
         });
       });
@@ -181,8 +192,12 @@ class AuthService {
         return this._loadProfile(firebase, firebaseUser, attempt + 1);
       }
 
-      // All retries exhausted — show banner, keep Google session (P0-8)
+      // All retries exhausted — show banner, keep Google session (P0-8, E5)
+      store.set('profileLoadFailed', true);
       showProfileErrorBanner(() => this._loadProfile(firebase, firebaseUser, 1));
+      if (window.location.hash !== '#loading-failed') {
+        window.location.hash = '#loading-failed';
+      }
       // Do NOT call setUser(null) — that would sign the person out silently
     }
     this._resolveAuthReady(true);
@@ -236,6 +251,18 @@ class AuthService {
       this._userUnsub();
       this._userUnsub = null;
     }
+    try {
+      const keysToRemove = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith('local_') || k.startsWith('schoolhub_'))) {
+          keysToRemove.push(k);
+        }
+      }
+      keysToRemove.forEach(k => localStorage.removeItem(k));
+    } catch (storageErr) {
+      console.warn('[Auth] Error clearing localStorage on sign out:', storageErr);
+    }
     const firebase = await initFirebase();
     if (firebase && firebase.auth) {
       const { signOut } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js');
@@ -243,6 +270,7 @@ class AuthService {
     }
     this.setUser(null);
     store.set('isAdmin', false, false);
+    store.set('profileLoadFailed', false, false);
   }
 
   async claimAdminAccess(_unused) {

@@ -3,7 +3,7 @@ import { escapeHtml, escapeAttr } from '../../core/utils/escapeHtml.js';
 export function renderAnnouncementCard(ann, currentUid, isAdmin) {
   const safeId = escapeAttr(ann.id);
   const safeTitle = escapeHtml(ann.title || 'Announcement');
-  const safeContent = escapeHtml(ann.content || '');
+  const safeContent = escapeHtml(ann.body || ann.content || '');
   const safeAuthor = escapeHtml(ann.authorName || 'Class Administration');
   const roleLabel = ann.authorRole ? escapeHtml(ann.authorRole) : (isAdmin ? 'Admin' : 'Class Official');
 

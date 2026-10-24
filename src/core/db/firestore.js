@@ -106,16 +106,26 @@ export function unsubscribeCollection(collectionName) {
   }
 }
 
-export async function createDocument(collectionName, data, withClass = true) {
+export async function createDocument(collectionName, data, docId = null) {
   const database = await ensureDb();
   if (!database) {
-    const newItem = { id: `local_${Date.now()}`, ...data, createdAt: new Date() };
+    const newItem = { id: docId || `local_${Date.now()}`, ...data, createdAt: new Date() };
     store.update(collectionName, list => [newItem, ...(list || [])]);
     return newItem;
   }
-  const { collection, addDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  const { collection, addDoc, setDoc, doc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
   const payload = { ...data, createdAt: serverTimestamp() };
-  if (withClass && !payload.classId) payload.classId = store.get('currentClassId') || '';
+  if (typeof docId === 'string' && docId) {
+    // Use a specific document ID (e.g. students/{uid})
+    await setDoc(doc(database, collectionName, docId), payload);
+    return { id: docId, ...payload };
+  }
+  if (docId !== null && typeof docId !== 'string') {
+    // Legacy boolean behaviour: set classId if truthy but no specific ID
+    if (docId && !payload.classId) payload.classId = store.get('currentClassId') || '';
+  } else {
+    if (!payload.classId) payload.classId = store.get('currentClassId') || '';
+  }
   const ref = await addDoc(collection(database, collectionName), payload);
   return { id: ref.id, ...payload };
 }
