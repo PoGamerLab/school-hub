@@ -26,6 +26,30 @@ export async function loadAndRenderClassManager() {
 
 function attachClassManagerEvents(container) {
   const form = document.getElementById('admin-create-class-form');
+
+  // Live preview: update slug and name pill as grade/section selects change
+  function updatePreview() {
+    const gradeEl   = document.getElementById('admin-select-grade');
+    const sectionEl = document.getElementById('admin-select-section');
+    const gradeOpt  = gradeEl?.options[gradeEl.selectedIndex];
+    const secOpt    = sectionEl?.options[sectionEl.selectedIndex];
+    const num  = gradeOpt?.dataset.num  || '10';
+    const sec  = secOpt?.dataset.sec    || 'b';
+    const slug = `${num}-${sec}`;
+    const displayGrade   = gradeOpt?.text   || 'Grade 10';
+    const displaySection = secOpt?.text     || 'Section B';
+    const nameStr = `${displayGrade} — ${displaySection}`;
+
+    const previewName = document.getElementById('admin-class-preview-name');
+    const previewSlug = document.getElementById('admin-class-preview-slug');
+    if (previewName) previewName.textContent = nameStr;
+    if (previewSlug) previewSlug.textContent  = slug;
+  }
+
+  document.getElementById('admin-select-grade')?.addEventListener('change', updatePreview);
+  document.getElementById('admin-select-section')?.addEventListener('change', updatePreview);
+  updatePreview();
+
   form?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const submitBtn = document.getElementById('admin-create-class-submit-btn');
@@ -34,11 +58,24 @@ function attachClassManagerEvents(container) {
       submitBtn.textContent = 'Creating...';
     }
 
-    const id = document.getElementById('admin-class-id').value.trim().toLowerCase();
-    const name = document.getElementById('admin-class-name').value.trim();
-    const grade = document.getElementById('admin-class-grade').value.trim();
-    const section = document.getElementById('admin-class-section').value.trim();
-    const classTeacher = document.getElementById('admin-class-teacher').value.trim();
+    const gradeEl   = document.getElementById('admin-select-grade');
+    const sectionEl = document.getElementById('admin-select-section');
+    const gradeOpt  = gradeEl?.options[gradeEl.selectedIndex];
+    const secOpt    = sectionEl?.options[sectionEl.selectedIndex];
+
+    const num  = gradeOpt?.dataset.num  || '10';
+    const sec  = secOpt?.dataset.sec    || 'b';
+    const id   = `${num}-${sec}`;
+    const grade   = gradeOpt?.text   || 'Grade 10';
+    const section = secOpt?.text     || 'Section B';
+    const name = `${grade} — ${section}`;
+    const classTeacher = (document.getElementById('admin-new-class-teacher')?.value || '').trim();
+
+    if (!classTeacher) {
+      showToast('Please enter a class teacher name.', 'error');
+      if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '+ Create Active Class'; }
+      return;
+    }
 
     try {
       await setDocument('classes', id, {
@@ -54,6 +91,7 @@ function attachClassManagerEvents(container) {
       await logAdminAction('CREATE_CLASS', id, `Created class: ${name} (${id})`);
       showToast(`Class "${name}" created successfully!`, 'success');
       form.reset();
+      updatePreview();
       await syncClasses();
       await Promise.all([loadAndRenderClassManager(), loadAndRenderGateEditor()]);
     } catch (err) {

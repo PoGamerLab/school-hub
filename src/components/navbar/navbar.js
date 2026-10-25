@@ -198,13 +198,6 @@ export function initNavbar() {
     }
   }
 
-  // ── Revoked screen sign-out ──────────────────────────────────────
-  document.getElementById('revoked-signout-btn')?.addEventListener('click', async () => {
-    await authService.signOut();
-    showToast('Signed out.');
-    window.location.hash = '#home';
-  });
-
   // ── Mobile bottom tab bar ────────────────────────────────────────
   const bottomBar = document.getElementById('mobile-bottom-bar');
   if (bottomBar) {

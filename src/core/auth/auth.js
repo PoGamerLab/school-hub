@@ -156,6 +156,11 @@ class AuthService {
 
       if (userData.photoRemovedNotice) {
         showToast(userData.photoRemovedNotice, 'error');
+        // Clear the notice so it only shows once (fire-and-forget)
+        const { updateDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        updateDoc(userRef, { photoRemovedNotice: null }).catch(e =>
+          console.warn('[Auth] Could not clear photoRemovedNotice:', e)
+        );
       }
 
       // Listen for real-time status/ban changes (multi-tab sync, admin actions)

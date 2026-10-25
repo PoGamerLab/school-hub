@@ -163,10 +163,24 @@ export function initProfileForm() {
       // Preserve immutable fields from existing record
       payload.createdAt     = existingRecord.createdAt;
       payload.gradientIndex = existingRecord.gradientIndex ?? Math.floor(Math.random() * 8);
-      payload.photoSource   = existingRecord.photoSource   || 'none';
-      payload.photoThumb    = existingRecord.photoThumb    || '';
-      payload.googlePhotoUrl = existingRecord.googlePhotoUrl || '';
       payload.photoReports  = existingRecord.photoReports  || {};
+
+      const prevSource = existingRecord.photoSource || 'none';
+      payload.photoSource = prevSource;
+
+      // When photo source is 'upload', keep thumb but clear google URL (rule: googlePhotoUrl==''
+      // is allowed when photoSource!='google'). When source is 'google', keep google URL but
+      // clear thumb. This ensures switching directions is always valid.
+      if (prevSource === 'upload') {
+        payload.photoThumb     = existingRecord.photoThumb || '';
+        payload.googlePhotoUrl = '';                           // clear old google URL
+      } else if (prevSource === 'google') {
+        payload.photoThumb     = '';                           // clear old thumb
+        payload.googlePhotoUrl = existingRecord.googlePhotoUrl || '';
+      } else {
+        payload.photoThumb     = '';
+        payload.googlePhotoUrl = '';
+      }
     } else {
       payload.gradientIndex = Math.floor(Math.random() * 8);
       payload.photoSource   = 'none';

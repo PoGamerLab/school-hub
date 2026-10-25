@@ -198,7 +198,9 @@ service cloud.firestore {
       allow write: if isOwner(uid) && isActive() &&
         request.resource.data.keys().hasOnly(['lastMessageAt', 'lastMessageId']) &&
         request.resource.data.lastMessageAt == request.time &&
-        (!('lastMessageId' in request.resource.data) || (request.resource.data.lastMessageId is string && request.resource.data.lastMessageId.size() <= 100));
+        request.resource.data.lastMessageId is string &&
+        request.resource.data.lastMessageId.size() > 0 &&
+        request.resource.data.lastMessageId.size() <= 100;
     }
 
     // --- 7c. classChats/{classId}/messages/{msgId} (Phase C: Rate-limited, safe class chat) ---
@@ -215,13 +217,12 @@ service cloud.firestore {
         (!('mutedUntil' in getUser()) || request.time >= getUser().mutedUntil) &&
         existsAfter(/databases/$(database)/documents/chatState/$(request.auth.uid)) &&
         getAfter(/databases/$(database)/documents/chatState/$(request.auth.uid)).data.lastMessageAt == request.time &&
-        (!('lastMessageId' in getAfter(/databases/$(database)/documents/chatState/$(request.auth.uid)).data) ||
-         getAfter(/databases/$(database)/documents/chatState/$(request.auth.uid)).data.lastMessageId == msgId) &&
+        getAfter(/databases/$(database)/documents/chatState/$(request.auth.uid)).data.lastMessageId == msgId &&
         (!exists(/databases/$(database)/documents/chatState/$(request.auth.uid)) ||
          request.time >= get(/databases/$(database)/documents/chatState/$(request.auth.uid)).data.lastMessageAt + duration.value(5, 's'));
-      allow update: if isActive() && inMyClass(classId) && siteWritable() &&
+      allow update: if isAdmin() || (isActive() && inMyClass(classId) && siteWritable() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reports']) &&
-        isValidReportMap(request.resource.data.reports);
+        isValidReportMap(request.resource.data.reports));
       allow delete: if isAdmin() || (isActive() && resource.data.authorUid == request.auth.uid);
     }
 
@@ -302,7 +303,9 @@ service cloud.firestore {
           request.resource.data.createdAt == resource.data.createdAt &&
           ((!('photoReports' in resource.data) && (!('photoReports' in request.resource.data) || request.resource.data.photoReports == {})) ||
            request.resource.data.photoReports == resource.data.photoReports) &&
-          (!('photoUpdatedAt' in request.resource.data) || request.resource.data.photoUpdatedAt == request.time) &&
+          (!('photoUpdatedAt' in request.resource.data) ||
+           request.resource.data.photoUpdatedAt == request.time ||
+           request.resource.data.photoUpdatedAt == resource.data.photoUpdatedAt) &&
           request.resource.data.keys().hasOnly([
             'name', 'roll', 'category', 'tags', 'bio', 'favSubject', 'favQuote', 'funFact',
             'gradientIndex', 'initials', 'classId', 'ownerUid', 'showBirthday', 'showContact',

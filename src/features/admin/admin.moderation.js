@@ -47,7 +47,7 @@ async function loadAndRenderChatReports() {
     if (!fb?.db) return;
     const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
 
-    const classes = store.get('classes') || [];
+    const classes = store.get('activeClasses') || [];
     const reportedMessages = [];
 
     for (const c of classes) {

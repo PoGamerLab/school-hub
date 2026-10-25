@@ -90,6 +90,7 @@ async function boot() {
     window.location.reload();
   });
   document.getElementById('loading-failed-signout-btn')?.addEventListener('click', () => {
+    store.set('profileLoadFailed', false, false);
     authService.signOut();
   });
 

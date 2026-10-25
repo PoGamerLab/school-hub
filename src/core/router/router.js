@@ -121,6 +121,11 @@ class Router {
       return 'loading-failed';
     }
 
+    // Escape the loading-failed screen once it is no longer needed
+    if (screenId === 'loading-failed' && !store.get('profileLoadFailed')) {
+      return this._intendedDestination || 'home';
+    }
+
     const user = store.get('user');
     const isAdmin = store.get('isAdmin');
 
