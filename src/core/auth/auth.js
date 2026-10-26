@@ -98,7 +98,15 @@ class AuthService {
         await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
 
       const userRef = doc(firebase.db, 'users', firebaseUser.uid);
-      const userSnap = await getDoc(userRef);
+      const adminRef = doc(firebase.db, 'admins', firebaseUser.uid);
+
+      const [userSnap, adminSnap] = await Promise.all([
+        getDoc(userRef),
+        getDoc(adminRef).catch(err => {
+          console.warn('[Auth] Check admin doc warning:', err);
+          return null;
+        })
+      ]);
 
       let userData;
       if (!userSnap.exists()) {
@@ -118,15 +126,6 @@ class AuthService {
         await setDoc(userRef, userData);
       } else {
         userData = userSnap.data();
-      }
-
-      // Confirm admin status strictly via admins/{uid} document (Phase A1)
-      const adminRef = doc(firebase.db, 'admins', firebaseUser.uid);
-      let adminSnap = null;
-      try {
-        adminSnap = await getDoc(adminRef);
-      } catch (err) {
-        console.warn('[Auth] Check admin doc warning:', err);
       }
 
       const isAdmin = !!(adminSnap && adminSnap.exists());

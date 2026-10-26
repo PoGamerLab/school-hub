@@ -31,6 +31,7 @@ class Router {
     this._intendedDestination = null;
     this.activeScreenId = null;
     this.screenHooks = new Map();
+    this._routeSig = null;
   }
 
   registerScreenHook(screenId, { onEnter, onLeave }) {
@@ -53,8 +54,13 @@ class Router {
 
     window.addEventListener('hashchange', () => this.handleHashChange());
 
-    store.subscribe('user', () => {
-      if (this.authReady) this.handleHashChange();
+    store.subscribe('user', (u) => {
+      if (!this.authReady) return;
+      const isAdmin = !!store.get('isAdmin');
+      const sig = u ? [u.uid, u.status, u.banned, isAdmin, u.classId].join('|') : 'out';
+      if (sig === this._routeSig) return; // ignore echoes with the same routing data
+      this._routeSig = sig;
+      this.handleHashChange();
     });
 
     this._showLoading();
@@ -64,6 +70,10 @@ class Router {
   onAuthReady() {
     this.authReady = true;
     this._hideLoading();
+
+    const u = store.get('user');
+    const isAdmin = !!store.get('isAdmin');
+    this._routeSig = u ? [u.uid, u.status, u.banned, isAdmin, u.classId].join('|') : 'out';
 
     const target = this._pendingHash || window.location.hash.replace('#', '') || 'home';
     this._pendingHash = null;
@@ -246,7 +256,9 @@ class Router {
     }
 
     store.set('activeScreen', screenId, false);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    if (prevScreenId !== screenId) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }
 
   _showLoading() {

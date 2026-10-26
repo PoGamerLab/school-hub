@@ -87,7 +87,6 @@ export function initGallery() {
       const id = delBtn.dataset.id;
       const caption = delBtn.dataset.caption || '';
       const ownerUid = delBtn.dataset.owner || '';
-      const user = authService.getCurrentUser();
       const isAdmin = Boolean(store.get('isAdmin'));
 
       if (!user) {

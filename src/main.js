@@ -68,8 +68,8 @@ async function boot() {
   authService.init();
 
   await authService.ready();
-  await syncClasses();
   router.onAuthReady();
+  syncClasses();
 
   document.getElementById('hero-browse-btn')?.addEventListener('click', async () => {
     if (!authService.isAuthenticated()) {

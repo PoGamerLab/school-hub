@@ -10,8 +10,14 @@
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@500;600;700&family=Work+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+  <!-- Firebase SDK Preload (Phase B2) -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js">
+  <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js">
 
   <!-- Modular Stylesheets -->
   <link rel="stylesheet" href="src/styles/theme.css">
@@ -166,6 +172,9 @@
           </div>
 
           <div class="grid" id="hub-students-grid"></div>
+          <div id="hub-students-load-more-container" class="text-center mt-3 hidden">
+            <button class="btn btn-secondary" id="hub-students-load-more-btn" type="button">Load More Students</button>
+          </div>
         </div>
       </section>
     </div>

@@ -77,38 +77,40 @@ export function initClasses() {
     const user = authService.getCurrentUser();
     const myClassId = user?.classId || '';
 
-    const counts = {};
-    try {
-      const fb = await initFirebase();
-      if (fb && fb.db) {
-        const { collection, getDocs } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-        const snap = await getDocs(collection(fb.db, 'students'));
-        snap.forEach(d => {
-          const cid = d.data().classId;
-          if (cid) counts[cid] = (counts[cid] || 0) + 1;
-        });
+    let counts = store.get('classCounts') || {};
+    const lastCountTime = store.get('classCountsTimestamp') || 0;
+    const now = Date.now();
+
+    // Cache class counts for 5 minutes (Phase B4)
+    if (now - lastCountTime > 5 * 60 * 1000 || Object.keys(counts).length === 0) {
+      try {
+        const fb = await initFirebase();
+        if (fb?.db && classes.length > 0) {
+          const { collection, query, where, getCountFromServer } =
+            await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          const countPromises = classes.map(async c => {
+            try {
+              const snap = await getCountFromServer(query(collection(fb.db, 'students'), where('classId', '==', c.id)));
+              return [c.id, snap.data().count];
+            } catch (_) {
+              return [c.id, counts[c.id] || 0];
+            }
+          });
+          const results = await Promise.all(countPromises);
+          counts = Object.fromEntries(results);
+          store.set('classCounts', counts, false);
+          store.set('classCountsTimestamp', now, false);
+        }
+      } catch (e) {
+        console.warn('Count fetch warning:', e);
       }
-    } catch (e) {
-      console.warn('Count fetch warning:', e);
     }
 
     const filtered = classes.filter(c => {
       const q = currentSearch.toLowerCase();
-      const matchSearch = !q ||
-        (c.name && c.name.toLowerCase().includes(q)) ||
-        (c.grade && c.grade.toLowerCase().includes(q)) ||
-        (c.classTeacher && c.classTeacher.toLowerCase().includes(q)) ||
-        c.id.toLowerCase().includes(q);
-
+      const matchSearch = !q || [c.name, c.grade, c.classTeacher, c.id].some(f => f && f.toLowerCase().includes(q));
       const f = currentFilter.toLowerCase();
-      let matchFilter = f === 'all';
-      if (!matchFilter) {
-        if (f === 'middle') {
-          matchFilter = c.grade && (c.grade.includes('6') || c.grade.includes('7') || c.grade.includes('8'));
-        } else {
-          matchFilter = c.grade && c.grade.toLowerCase().includes(f);
-        }
-      }
+      const matchFilter = f === 'all' || (f === 'middle' ? ['6', '7', '8'].some(g => c.grade?.includes(g)) : c.grade?.toLowerCase().includes(f));
       return matchSearch && matchFilter;
     });
 

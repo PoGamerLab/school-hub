@@ -1,5 +1,5 @@
 /**
- * Class Chat Controller (Phase C: Rate limits, pagination, reporting, moderation).
+ * Class Chat Controller (Phase C & B6: Leaks & glitch hardening).
  */
 
 import { initFirebase } from '../../config/firebase.js';
@@ -11,8 +11,12 @@ import { bindAvatarFallbacks } from '../../components/avatar/avatar.js';
 
 let activeChatUnsub = null;
 let currentChatClassId = null;
-let oldestDocCursor = null;
+let oldestDocSnap = null;
 let visibilityTimer = null;
+let visibilityHandler = null;
+let isStreaming = false;
+let liveDocs = [];
+let olderDocs = [];
 
 export function loadAndRenderClassChat(classId, className) {
   const container = document.getElementById('class-chat-root');
@@ -35,52 +39,67 @@ export function loadAndRenderClassChat(classId, className) {
 }
 
 function checkIsMuted(user) {
-  if (!user?.mutedUntil) return false;
-  const mutedDate = user.mutedUntil.toDate ? user.mutedUntil.toDate() : new Date(user.mutedUntil);
-  return mutedDate > new Date();
+  const d = user?.mutedUntil?.toDate ? user.mutedUntil.toDate() : (user?.mutedUntil ? new Date(user.mutedUntil) : null);
+  return Boolean(d && d > new Date());
 }
 
 function getMutedUntilString(user) {
-  if (!user?.mutedUntil) return '';
-  const mutedDate = user.mutedUntil.toDate ? user.mutedUntil.toDate() : new Date(user.mutedUntil);
-  return mutedDate.toLocaleString();
+  const d = user?.mutedUntil?.toDate ? user.mutedUntil.toDate() : (user?.mutedUntil ? new Date(user.mutedUntil) : null);
+  return d ? d.toLocaleString() : '';
+}
+
+function renderMessagesBox(box) {
+  if (!box) return;
+  const user = authService.getCurrentUser();
+  const isAdmin = !!store.get('isAdmin');
+  const students = store.get('students') || [];
+
+  const map = new Map();
+  olderDocs.forEach(d => map.set(d.id, d));
+  liveDocs.forEach(d => map.set(d.id, d));
+  const messages = Array.from(map.values()).sort((a, b) => {
+    const ta = a.createdAt?.toMillis?.() || 0;
+    const tb = b.createdAt?.toMillis?.() || 0;
+    return ta - tb;
+  });
+
+  if (messages.length === 0) {
+    box.innerHTML = '<div class="admin-empty-notice">No messages in this class chat yet. Say hello! 👋</div>';
+    return;
+  }
+
+  box.innerHTML = messages.map(m => {
+    const student = students.find(s => (s.id || s.uid) === m.authorUid || s.ownerUid === m.authorUid);
+    return renderChatMessage(m, user ? user.uid : null, isAdmin, student);
+  }).join('');
+
+  bindAvatarFallbacks(box);
 }
 
 async function initChatStream(classId) {
   const box = document.getElementById('class-chat-messages-box');
   if (!box) return;
 
+  isStreaming = true;
   try {
     const fb = await initFirebase();
-    if (!fb?.db) return;
+    if (!fb?.db || currentChatClassId !== classId) {
+      isStreaming = false;
+      return;
+    }
     const { collection, onSnapshot, query, orderBy, limit } =
       await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
 
     const q = query(collection(fb.db, 'classChats', classId, 'messages'), orderBy('createdAt', 'desc'), limit(50));
 
     activeChatUnsub = onSnapshot(q, (snap) => {
-      const user = authService.getCurrentUser();
-      const isAdmin = !!store.get('isAdmin');
-      const docs = snap.docs;
-      const students = store.get('students') || [];
-
-      if (docs.length > 0) {
-        oldestDocCursor = docs[docs.length - 1];
-        document.getElementById('class-chat-load-older-btn')?.classList.toggle('hidden', docs.length < 50);
+      liveDocs = snap.docs.map(d => ({ id: d.id, ...d.data(), _snap: d }));
+      if (liveDocs.length > 0 && !oldestDocSnap) {
+        oldestDocSnap = liveDocs[liveDocs.length - 1]._snap;
       }
+      document.getElementById('class-chat-load-older-btn')?.classList.toggle('hidden', snap.docs.length < 50);
 
-      const messages = docs.map(d => ({ id: d.id, ...d.data() })).reverse();
-      if (messages.length === 0) {
-        box.innerHTML = '<div class="admin-empty-notice">No messages in this class chat yet. Say hello! 👋</div>';
-        return;
-      }
-
-      box.innerHTML = messages.map(m => {
-        const student = students.find(s => (s.id || s.uid) === m.authorUid || s.ownerUid === m.authorUid);
-        return renderChatMessage(m, user ? user.uid : null, isAdmin, student);
-      }).join('');
-
-      bindAvatarFallbacks(box);
+      renderMessagesBox(box);
       box.scrollTop = box.scrollHeight;
     }, (err) => {
       console.warn('Class chat snapshot warning:', err);
@@ -89,11 +108,13 @@ async function initChatStream(classId) {
   } catch (err) {
     console.error('Failed to init class chat:', err);
     box.innerHTML = '<div class="admin-empty-notice">Failed to load chat.</div>';
+  } finally {
+    isStreaming = false;
   }
 }
 
 async function loadOlderMessages(classId) {
-  if (!oldestDocCursor) return;
+  if (!oldestDocSnap) return;
   const loadOlderBtn = document.getElementById('class-chat-load-older-btn');
   const box = document.getElementById('class-chat-messages-box');
   if (loadOlderBtn) loadOlderBtn.disabled = true;
@@ -106,34 +127,25 @@ async function loadOlderMessages(classId) {
     const q = query(
       collection(fb.db, 'classChats', classId, 'messages'),
       orderBy('createdAt', 'desc'),
-      startAfter(oldestDocCursor),
+      startAfter(oldestDocSnap),
       limit(50)
     );
 
     const snap = await getDocs(q);
-    const docs = snap.docs;
-    if (docs.length === 0) {
+    if (snap.empty) {
       loadOlderBtn?.classList.add('hidden');
       showToast('No more older messages.', 'info');
       return;
     }
 
-    oldestDocCursor = docs[docs.length - 1];
-    loadOlderBtn?.classList.toggle('hidden', docs.length < 50);
-
-    const user = authService.getCurrentUser();
-    const isAdmin = !!store.get('isAdmin');
-    const students = store.get('students') || [];
-    const olderMessages = docs.map(d => ({ id: d.id, ...d.data() })).reverse();
-
-    const olderHtml = olderMessages.map(m => {
-      const student = students.find(s => (s.id || s.uid) === m.authorUid || s.ownerUid === m.authorUid);
-      return renderChatMessage(m, user ? user.uid : null, isAdmin, student);
-    }).join('');
+    oldestDocSnap = snap.docs[snap.docs.length - 1];
+    loadOlderBtn?.classList.toggle('hidden', snap.docs.length < 50);
 
     const prevScrollHeight = box.scrollHeight;
-    box.insertAdjacentHTML('afterbegin', olderHtml);
-    bindAvatarFallbacks(box);
+    const fetched = snap.docs.map(d => ({ id: d.id, ...d.data(), _snap: d }));
+    olderDocs = [...fetched, ...olderDocs];
+
+    renderMessagesBox(box);
     box.scrollTop = box.scrollHeight - prevScrollHeight;
   } catch (err) {
     console.error('Failed to load older messages:', err);
@@ -173,21 +185,7 @@ function attachChatEvents(classId) {
       if (!isAdmin) {
         const students = store.get('students') || [];
         const studentProfile = students.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
-        if (studentProfile?.name) {
-          authorName = studentProfile.name.slice(0, 80);
-        } else {
-          try {
-            const sDoc = await getDoc(doc(fb.db, 'students', user.uid));
-            if (sDoc.exists() && sDoc.data()?.name) {
-              authorName = sDoc.data().name.slice(0, 80);
-            }
-          } catch (fetchErr) {
-            console.warn('Could not fetch student doc for author name:', fetchErr);
-          }
-        }
-        if (!authorName) {
-          authorName = (user.displayName || 'Student').slice(0, 80);
-        }
+        authorName = (studentProfile?.name || user.displayName || 'Student').slice(0, 80);
       }
 
       const batch = writeBatch(fb.db);
@@ -195,14 +193,13 @@ function attachChatEvents(classId) {
       const chatStateRef = doc(fb.db, 'chatState', user.uid);
 
       batch.set(newMsgRef, { authorUid: user.uid, authorName, classId, text: text.slice(0, 500), reports: {}, createdAt: serverTimestamp(), ...extra });
-      batch.set(chatStateRef, { lastMessageAt: serverTimestamp(), lastMessageId: newMsgRef.id });
+      batch.set(chatStateRef, { lastSentAt: serverTimestamp(), lastMessageId: newMsgRef.id }, { merge: true });
 
       await batch.commit();
       if (input) input.value = '';
     } catch (err) {
-      console.error('Send message error:', err);
-      const errMsg = err?.message || '';
-      showToast(errMsg.includes('permission-denied') || errMsg.includes('PERMISSION_DENIED') ? 'Message blocked (muted, banned, or sending too fast).' : 'Failed to send message.', 'error');
+      console.error('Failed to send message:', err);
+      showToast('Could not send message. Please wait 3 seconds.', 'error');
     } finally {
       if (sendBtn) sendBtn.disabled = false;
     }
@@ -212,7 +209,8 @@ function attachChatEvents(classId) {
     const deleteBtn = e.target.closest('[data-action="delete-msg"]');
     const reportBtn = e.target.closest('[data-action="report-msg"]');
 
-    if (deleteBtn && confirm('Delete this message?')) {
+    if (deleteBtn) {
+      if (!confirm('Delete this message?')) return;
       try {
         const fb = await initFirebase();
         const { doc, deleteDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
@@ -261,7 +259,10 @@ function attachChatEvents(classId) {
 }
 
 function setupVisibilityListener(classId) {
-  document.addEventListener('visibilitychange', () => {
+  if (visibilityHandler) {
+    document.removeEventListener('visibilitychange', visibilityHandler);
+  }
+  visibilityHandler = () => {
     if (document.visibilityState === 'hidden') {
       visibilityTimer = setTimeout(() => {
         if (activeChatUnsub) {
@@ -274,22 +275,21 @@ function setupVisibilityListener(classId) {
         clearTimeout(visibilityTimer);
         visibilityTimer = null;
       }
-      if (!activeChatUnsub && currentChatClassId === classId) {
+      if (!activeChatUnsub && currentChatClassId === classId && !isStreaming) {
         initChatStream(classId);
       }
     }
-  });
+  };
+  document.addEventListener('visibilitychange', visibilityHandler);
 }
 
 export function cleanupClassChat() {
-  if (activeChatUnsub) {
-    activeChatUnsub();
-    activeChatUnsub = null;
-  }
-  if (visibilityTimer) {
-    clearTimeout(visibilityTimer);
-    visibilityTimer = null;
-  }
+  if (activeChatUnsub) { activeChatUnsub(); activeChatUnsub = null; }
+  if (visibilityTimer) { clearTimeout(visibilityTimer); visibilityTimer = null; }
+  if (visibilityHandler) { document.removeEventListener('visibilitychange', visibilityHandler); visibilityHandler = null; }
+  isStreaming = false;
   currentChatClassId = null;
-  oldestDocCursor = null;
+  oldestDocSnap = null;
+  liveDocs = [];
+  olderDocs = [];
 }
