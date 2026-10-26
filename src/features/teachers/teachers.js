@@ -13,7 +13,7 @@ export function initTeachers() {
   const addTeacherModal = document.getElementById('add-teacher-modal');
   const loadMoreContainer = document.getElementById('teachers-load-more-container');
   const loadMoreBtn = document.getElementById('teachers-load-more-btn');
-  const openTeacherModalBtn = document.getElementById('open-add-teacher-modal');
+  const openTeacherModalBtn = document.getElementById('open-add-teacher-btn');
 
   let activeSub = null;
   let editingTeacherId = null;
