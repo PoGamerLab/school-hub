@@ -38,15 +38,8 @@ export function initStudents() {
       }
 
       const filter = (activeCategory || 'All').toLowerCase();
-      const matchesCategory = filter === 'all' ||
-                              (student.category && student.category.toLowerCase() === filter) ||
-                              (student.house && student.house.toLowerCase() === filter);
-      const matchesSearch = !searchQuery ||
-                            (student.name && student.name.toLowerCase().includes(searchQuery)) ||
-                            (student.tags && student.tags.toLowerCase().includes(searchQuery)) ||
-                            (student.house && student.house.toLowerCase().includes(searchQuery)) ||
-                            (student.group && student.group.toLowerCase().includes(searchQuery)) ||
-                            (student.favSubject && student.favSubject.toLowerCase().includes(searchQuery));
+      const matchesCategory = filter === 'all' || (student.category && student.category.toLowerCase() === filter) || (student.house && student.house.toLowerCase() === filter);
+      const matchesSearch = !searchQuery || [student.name, student.tags, student.house, student.group, student.favSubject].some(s => s && s.toLowerCase().includes(searchQuery));
       return matchesCategory && matchesSearch;
     });
   }
@@ -174,10 +167,17 @@ export function initStudents() {
       try {
         const { initFirebase } = await import('../../config/firebase.js');
         const fb = await initFirebase();
-        const { doc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-        const reportUpdate = {};
-        reportUpdate[`photoReports.${user.uid}`] = { reason: safeReason, details, createdAt: serverTimestamp() };
-        await updateDoc(doc(fb.db, 'students', targetUid), reportUpdate);
+        const { doc, writeBatch, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const batch = writeBatch(fb.db);
+        batch.update(doc(fb.db, 'students', targetUid), {
+          [`photoReports.${user.uid}`]: { reason: safeReason, details, createdAt: serverTimestamp() }
+        });
+        const classId = (reportPhotoBtn.dataset.classId || store.get('currentClassId') || '').slice(0, 30);
+        batch.set(doc(fb.db, 'reportQueue', `photo_${targetUid}_${user.uid}`), {
+          kind: 'photo', classId, targetId: targetUid.slice(0, 100), targetPath: `students/${targetUid}`,
+          reporterUid: user.uid, reason: safeReason, details, createdAt: serverTimestamp()
+        });
+        await batch.commit();
         showToast('Photo reported to school administration.', 'info');
       } catch (err) {
         console.error('Photo report failed:', err);

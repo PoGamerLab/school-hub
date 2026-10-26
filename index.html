@@ -454,19 +454,17 @@
       <!-- Tab 2: Moderation Queue -->
       <div class="admin-tab-pane" id="admin-pane-moderation">
         <div class="admin-card">
-          <h3>Flagged Memories &amp; Superlatives</h3>
-          <p class="section-head-subtitle">Student reports on memories and superlatives with reasons. Items remain public until you choose to dismiss or delete.</p>
-          <div id="admin-reports-list"></div>
-        </div>
-        <div class="admin-card mt-3">
-          <h3>Flagged Class Chat Messages</h3>
-          <p class="section-head-subtitle">Reported messages across all classes. Delete inappropriate messages, dismiss reports, or mute abusive authors.</p>
-          <div id="admin-chat-reports-list"></div>
-        </div>
-        <div class="admin-card mt-3">
-          <h3>Reported Student Profile Photos</h3>
-          <p class="section-head-subtitle">Student avatars flagged for review. Remove inappropriate photos or dismiss false reports.</p>
-          <div id="admin-photo-reports-list"></div>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <h3>Unified Moderation Queue</h3>
+              <p class="section-head-subtitle">Reports on class chats, profile photos, memories, superlatives, and campus gallery. Items remain visible until dismissed or removed.</p>
+            </div>
+            <button class="btn btn-secondary btn-sm" id="admin-refresh-moderation-btn" type="button">🔄 Refresh</button>
+          </div>
+          <div id="admin-moderation-list"></div>
+          <div id="admin-moderation-load-more" class="text-center mt-3 hidden">
+            <button class="btn btn-secondary btn-sm" id="admin-moderation-more-btn" type="button">Load More Reports</button>
+          </div>
         </div>
       </div>
 
@@ -830,6 +828,12 @@
         <div class="form-group">
           <label for="edit-class-teacher">Class Teacher Name *</label>
           <input type="text" id="edit-class-teacher" required maxlength="80">
+        </div>
+        <div class="form-group">
+          <label for="edit-class-monitor">Class Monitor (Announcement Privileges)</label>
+          <select id="edit-class-monitor">
+            <option value="">-- No Class Monitor Assigned --</option>
+          </select>
         </div>
         <button type="submit" class="btn btn-primary btn-full">Save Changes</button>
       </form>

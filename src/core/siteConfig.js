@@ -4,6 +4,9 @@ import { escapeHtml } from './utils/escapeHtml.js';
 import { authService } from './auth/auth.js';
 
 let _lastReadOnlyData = null;
+let unsubStatus = null;
+let unsubAnnouncement = null;
+let _fbInstance = null;
 
 function _renderReadOnlyBanner(data, roBanner, fb) {
   if (!roBanner) return;
@@ -31,43 +34,75 @@ export function initSiteConfig() {
   const annBanner = document.getElementById('site-announcement-banner');
   const roBanner = document.getElementById('site-readonly-banner');
 
-  initFirebase().then(async fb => {
-    if (!fb || !fb.db) return;
-    const { doc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+  async function start() {
+    if (unsubStatus || unsubAnnouncement) return;
 
-    // Re-render banner when admin state changes (fixes race: auth resolves after snapshot)
-    store.subscribe('isAdmin', () => {
-      if (_lastReadOnlyData !== null) {
-        _renderReadOnlyBanner(_lastReadOnlyData, roBanner, fb);
+    try {
+      if (!_fbInstance) {
+        _fbInstance = await initFirebase();
       }
-    });
+      if (!_fbInstance?.db) return;
 
-    // 1. Status listener (Read-only mode)
-    onSnapshot(doc(fb.db, 'siteConfig', 'status'), (snap) => {
-      _lastReadOnlyData = snap.exists() ? snap.data() : {};
-      _renderReadOnlyBanner(_lastReadOnlyData, roBanner, fb);
-    }, (err) => {
-      console.warn('siteConfig status listener warning:', err);
-      if (roBanner) roBanner.classList.add('hidden');
-    });
+      const { doc, onSnapshot } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
 
-    // 2. Announcement listener
-    onSnapshot(doc(fb.db, 'siteConfig', 'announcement'), (snap) => {
-      const data = snap.exists() ? snap.data() : {};
-      const isActive = data.active === true && !!data.text;
-      if (annBanner) {
-        if (isActive) {
-          annBanner.innerHTML = `📢 <strong>Announcement:</strong> ${escapeHtml(data.text)}`;
-          annBanner.classList.remove('hidden');
-        } else {
-          annBanner.classList.add('hidden');
+      // 1. Status listener (Read-only mode)
+      unsubStatus = onSnapshot(doc(_fbInstance.db, 'siteConfig', 'status'), (snap) => {
+        _lastReadOnlyData = snap.exists() ? snap.data() : {};
+        _renderReadOnlyBanner(_lastReadOnlyData, roBanner, _fbInstance);
+      }, (err) => {
+        console.warn('siteConfig status listener warning:', err);
+        if (roBanner) roBanner.classList.add('hidden');
+      });
+
+      // 2. Announcement listener
+      unsubAnnouncement = onSnapshot(doc(_fbInstance.db, 'siteConfig', 'announcement'), (snap) => {
+        const data = snap.exists() ? snap.data() : {};
+        const isActive = data.active === true && !!data.text;
+        if (annBanner) {
+          if (isActive) {
+            annBanner.innerHTML = `📢 <strong>Announcement:</strong> ${escapeHtml(data.text)}`;
+            annBanner.classList.remove('hidden');
+          } else {
+            annBanner.classList.add('hidden');
+          }
         }
-      }
-    }, (err) => {
-      console.warn('siteConfig announcement listener warning:', err);
-    });
-  }).catch(err => {
-    console.warn('Failed to init siteConfig:', err);
+      }, (err) => {
+        console.warn('siteConfig announcement listener warning:', err);
+      });
+    } catch (err) {
+      console.warn('Failed to start siteConfig listeners:', err);
+    }
+  }
+
+  function stop() {
+    if (unsubStatus) {
+      unsubStatus();
+      unsubStatus = null;
+    }
+    if (unsubAnnouncement) {
+      unsubAnnouncement();
+      unsubAnnouncement = null;
+    }
+    _lastReadOnlyData = null;
+    store.set('isReadOnly', false, false);
+    if (roBanner) roBanner.classList.add('hidden');
+    if (annBanner) annBanner.classList.add('hidden');
+  }
+
+  // Re-render banner when admin state changes
+  store.subscribe('isAdmin', () => {
+    if (_lastReadOnlyData !== null && _fbInstance) {
+      _renderReadOnlyBanner(_lastReadOnlyData, roBanner, _fbInstance);
+    }
+  });
+
+  // Start listeners only after sign-in; stop on sign-out (Phase A8)
+  store.subscribe('user', (u) => {
+    if (u) {
+      start();
+    } else {
+      stop();
+    }
   });
 }
 

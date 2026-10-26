@@ -3,7 +3,8 @@ import { router } from '../../core/router/router.js';
 import { authService } from '../../core/auth/auth.js';
 import { renderMemoryCard } from './memories.render.js';
 import { showToast } from '../../components/toast/toast.js';
-import { subscribeClassCollection, unsubscribeCollection, createDocument, setOwnMapKey } from '../../core/db/firestore.js';
+import { subscribeClassCollection, unsubscribeCollection, createDocument, deleteDocument, setOwnMapKey } from '../../core/db/firestore.js';
+import { logAdminAction } from '../admin/admin.audit.js';
 
 export function initMemories() {
   const container = document.getElementById('memories-container');
@@ -19,7 +20,7 @@ export function initMemories() {
     const memories = store.get('memories') || [];
     const user = authService.getCurrentUser();
     const uid = user ? user.uid : null;
-    const isAdmin = store.get('isAdmin');
+    const isAdmin = Boolean(store.get('isAdmin'));
 
     // Memories remain visible on the wall so fake reports cannot censor classmates;
     // reports are sent to the Admin Panel for administrator review.
@@ -36,7 +37,7 @@ export function initMemories() {
       return;
     }
 
-    container.innerHTML = visibleMemories.map(mem => renderMemoryCard(mem, uid)).join('');
+    container.innerHTML = visibleMemories.map(mem => renderMemoryCard(mem, uid, { isAdmin })).join('');
   }
 
   if (loadMoreBtn) {
@@ -54,6 +55,36 @@ export function initMemories() {
   if (container) {
     container.addEventListener('click', async (e) => {
       const user = authService.getCurrentUser();
+
+      const delBtn = e.target.closest('[data-action="delete-memory"]');
+      if (delBtn) {
+        if (!user) {
+          showToast('Please sign in to delete memories.', 'error');
+          return;
+        }
+        const id = delBtn.dataset.id;
+        const authorUid = delBtn.dataset.author || '';
+        const isAdmin = Boolean(store.get('isAdmin'));
+
+        if (!isAdmin && user.uid !== authorUid) {
+          showToast('You can only delete your own memories.', 'error');
+          return;
+        }
+
+        if (!confirm('Are you sure you want to delete this memory?')) return;
+
+        try {
+          await deleteDocument('memories', id);
+          if (isAdmin && user.uid !== authorUid) {
+            await logAdminAction('DELETE_MEMORY', id, 'Deleted memory entry');
+          }
+          showToast('Memory deleted from wall.', 'info');
+        } catch (err) {
+          console.error('Failed to delete memory:', err);
+          showToast('Could not delete memory.', 'error');
+        }
+        return;
+      }
 
       const reactionBtn = e.target.closest('[data-action="reaction"]');
       if (reactionBtn) {
@@ -98,14 +129,17 @@ export function initMemories() {
         try {
           const { initFirebase } = await import('../../config/firebase.js');
           const fb = await initFirebase();
-          const { doc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-          const updatePayload = {};
-          updatePayload[`reports.${user.uid}`] = {
-            reason: safeReason,
-            details,
-            createdAt: serverTimestamp()
-          };
-          await updateDoc(doc(fb.db, 'memories', memoryId), updatePayload);
+          const { doc, writeBatch, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          const batch = writeBatch(fb.db);
+          batch.update(doc(fb.db, 'memories', memoryId), {
+            [`reports.${user.uid}`]: { reason: safeReason, details, createdAt: serverTimestamp() }
+          });
+          const classId = (store.get('currentClassId') || '').slice(0, 30);
+          batch.set(doc(fb.db, 'reportQueue', `memory_${memoryId}_${user.uid}`), {
+            kind: 'memory', classId, targetId: memoryId.slice(0, 100), targetPath: `memories/${memoryId}`,
+            reporterUid: user.uid, reason: safeReason, details, createdAt: serverTimestamp()
+          });
+          await batch.commit();
           showToast('Thank you. Report sent to administrator for review.', 'info');
           render();
         } catch (err) {

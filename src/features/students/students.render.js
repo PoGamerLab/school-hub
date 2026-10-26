@@ -207,7 +207,7 @@ export function renderProfileView(student, currentUid = null) {
               </button>
             ` : ''}
             ${!isOwner && user ? `
-              <button class="btn btn-sm btn-ghost" id="report-profile-photo-btn" data-uid="${safeId}">
+              <button class="btn btn-sm btn-ghost" id="report-profile-photo-btn" data-uid="${safeId}" data-class-id="${escapeAttr(st.classId || '')}">
                 🚩 Report Photo
               </button>
             ` : ''}

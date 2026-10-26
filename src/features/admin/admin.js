@@ -56,41 +56,6 @@ export function initAdmin() {
     }
   }
 
-  // Dismiss / delete from the memories+superlatives report list
-  const reportsContainer = document.getElementById('admin-reports-list');
-  if (reportsContainer) {
-    reportsContainer.addEventListener('click', async (e) => {
-      const restoreBtn = e.target.closest('[data-action="restore"]');
-      if (restoreBtn) {
-        const id = restoreBtn.dataset.id;
-        const type = restoreBtn.dataset.type || 'memories';
-        try {
-          await updateDocument(type, id, { reports: {} });
-          await logAdminAction('DISMISS_REPORTS', id, `Cleared flags from ${type}`);
-          showToast('Reports cleared; item remains active.', 'success');
-          loadAndRenderModerationQueue();
-        } catch (err) {
-          showToast(`Action failed: ${err.message}`, 'error');
-        }
-        return;
-      }
-      const deleteBtn = e.target.closest('[data-action="delete"]');
-      if (deleteBtn) {
-        const id = deleteBtn.dataset.id;
-        const type = deleteBtn.dataset.type || 'memories';
-        if (!confirm('Permanently delete this reported post?')) return;
-        try {
-          await deleteDocument(type, id);
-          await logAdminAction('DELETE_POST', id, `Permanently deleted reported ${type}`);
-          showToast('Flagged item permanently deleted.', 'info');
-          loadAndRenderModerationQueue();
-        } catch (err) {
-          showToast(`Delete failed: ${err.message}`, 'error');
-        }
-      }
-    });
-  }
-
   initTabs();
   attachModerationEvents();
 

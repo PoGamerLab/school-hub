@@ -6,7 +6,7 @@ const REACTION_MAP = [
   { code: 'fire', emoji: '🔥' }
 ];
 
-export function renderMemoryCard(mem, currentUid = null) {
+export function renderMemoryCard(mem, currentUid = null, options = {}) {
   const safeQuote = escapeHtml(mem.quote);
   const safeAuthor = escapeHtml(mem.author);
   const safeContext = mem.context ? `<span class="memory-context">${escapeHtml(mem.context)}</span>` : '';
@@ -36,6 +36,7 @@ export function renderMemoryCard(mem, currentUid = null) {
   }).join('');
 
   const isReportedByMe = currentUid && mem.reports && mem.reports[currentUid];
+  const canDelete = Boolean(options.isAdmin || (currentUid && mem.authorUid === currentUid));
 
   return `
     <div class="memory-card" data-id="${safeId}">
@@ -48,9 +49,16 @@ export function renderMemoryCard(mem, currentUid = null) {
         <div class="reactions-list">
           ${reactionButtonsHtml}
         </div>
-        <button class="memory-report-btn ${isReportedByMe ? 'reported' : ''}" data-action="report" data-id="${safeId}" ${isReportedByMe ? 'disabled' : ''} title="${isReportedByMe ? 'You reported this entry' : 'Report inappropriate entry'}">
-          🚩 ${isReportedByMe ? 'Flagged' : 'Report'}
-        </button>
+        <div class="memory-card-actions">
+          ${canDelete ? `
+            <button type="button" class="memory-delete-btn" data-action="delete-memory" data-id="${safeId}" data-author="${escapeAttr(mem.authorUid || '')}" title="Delete quote">
+              🗑️ Delete
+            </button>
+          ` : ''}
+          <button class="memory-report-btn ${isReportedByMe ? 'reported' : ''}" data-action="report" data-id="${safeId}" ${isReportedByMe ? 'disabled' : ''} title="${isReportedByMe ? 'You reported this entry' : 'Report inappropriate entry'}">
+            🚩 ${isReportedByMe ? 'Flagged' : 'Report'}
+          </button>
+        </div>
       </div>
     </div>
   `;

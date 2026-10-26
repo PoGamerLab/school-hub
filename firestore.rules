@@ -473,6 +473,23 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // --- 15. reportQueue/{id} (Unified moderation queue for reports) ---
+    match /reportQueue/{id} {
+      allow create: if isActive() && siteWritable() &&
+        request.resource.data.keys().hasOnly(['kind', 'classId', 'targetId', 'targetPath', 'reporterUid', 'reason', 'details', 'createdAt']) &&
+        request.resource.data.reporterUid == request.auth.uid &&
+        id == request.resource.data.kind + '_' + request.resource.data.targetId + '_' + request.auth.uid &&
+        request.resource.data.kind in ['chat', 'photo', 'memory', 'superlative', 'gallery'] &&
+        request.resource.data.reason in ['inappropriate', 'harassment', 'spam', 'other'] &&
+        request.resource.data.details is string && request.resource.data.details.size() <= 200 &&
+        request.resource.data.targetId is string && request.resource.data.targetId.size() <= 100 &&
+        request.resource.data.targetPath is string && request.resource.data.targetPath.size() <= 200 &&
+        request.resource.data.classId is string && request.resource.data.classId.size() <= 30 &&
+        request.resource.data.createdAt == request.time;
+      allow read, delete: if isAdmin();
+      allow update: if false;
+    }
+
     // Default deny
     match /{document=**} {
       allow read, write: if false;

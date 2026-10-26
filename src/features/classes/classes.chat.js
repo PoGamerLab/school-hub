@@ -233,10 +233,25 @@ function attachChatEvents(classId) {
 
       try {
         const fb = await initFirebase();
-        const { doc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-        const updatePayload = {};
-        updatePayload[`reports.${user.uid}`] = { reason: safeReason, details, createdAt: serverTimestamp() };
-        await updateDoc(doc(fb.db, 'classChats', classId, 'messages', reportBtn.dataset.id), updatePayload);
+        const { doc, writeBatch, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const msgId = reportBtn.dataset.id;
+        const batch = writeBatch(fb.db);
+        const msgRef = doc(fb.db, 'classChats', classId, 'messages', msgId);
+        const queueRef = doc(fb.db, 'reportQueue', `chat_${msgId}_${user.uid}`);
+        batch.update(msgRef, {
+          [`reports.${user.uid}`]: { reason: safeReason, details, createdAt: serverTimestamp() }
+        });
+        batch.set(queueRef, {
+          kind: 'chat',
+          classId: classId.slice(0, 30),
+          targetId: msgId.slice(0, 100),
+          targetPath: `classChats/${classId}/messages/${msgId}`.slice(0, 200),
+          reporterUid: user.uid,
+          reason: safeReason,
+          details,
+          createdAt: serverTimestamp()
+        });
+        await batch.commit();
         showToast('Message reported to school administrators.', 'info');
       } catch (err) {
         showToast('Could not report message.', 'error');

@@ -3,7 +3,8 @@ import { router } from '../../core/router/router.js';
 import { authService } from '../../core/auth/auth.js';
 import { renderSuperlativeCard } from './superlatives.render.js';
 import { showToast } from '../../components/toast/toast.js';
-import { subscribeClassCollection, unsubscribeCollection, createDocument, setOwnMapKey } from '../../core/db/firestore.js';
+import { subscribeClassCollection, unsubscribeCollection, createDocument, deleteDocument, setOwnMapKey } from '../../core/db/firestore.js';
+import { logAdminAction } from '../admin/admin.audit.js';
 
 export function initSuperlatives() {
   const container = document.getElementById('superlatives-container');
@@ -19,6 +20,7 @@ export function initSuperlatives() {
     const superlatives = store.get('superlatives') || [];
     const user = authService.getCurrentUser();
     const currentUid = user ? user.uid : null;
+    const isAdmin = Boolean(store.get('isAdmin'));
 
     if (superlatives.length === 0) {
       container.innerHTML = `
@@ -31,7 +33,7 @@ export function initSuperlatives() {
       return;
     }
 
-    container.innerHTML = superlatives.map(item => renderSuperlativeCard(item, currentUid)).join('');
+    container.innerHTML = superlatives.map(item => renderSuperlativeCard(item, currentUid, { isAdmin })).join('');
   }
 
   if (loadMoreBtn) {
@@ -49,6 +51,36 @@ export function initSuperlatives() {
   if (container) {
     container.addEventListener('click', async (e) => {
       const user = authService.getCurrentUser();
+
+      const delBtn = e.target.closest('[data-action="delete-superlative"]');
+      if (delBtn) {
+        if (!user) {
+          showToast('Please sign in to delete superlatives.', 'error');
+          return;
+        }
+        const id = delBtn.dataset.id;
+        const createdBy = delBtn.dataset.creator || '';
+        const isAdmin = Boolean(store.get('isAdmin'));
+
+        if (!isAdmin && user.uid !== createdBy) {
+          showToast('You can only delete your own superlatives.', 'error');
+          return;
+        }
+
+        if (!confirm('Are you sure you want to delete this superlative category?')) return;
+
+        try {
+          await deleteDocument('superlatives', id);
+          if (isAdmin && user.uid !== createdBy) {
+            await logAdminAction('DELETE_SUPERLATIVE', id, 'Deleted superlative category');
+          }
+          showToast('Superlative category deleted.', 'info');
+        } catch (err) {
+          console.error('Failed to delete superlative:', err);
+          showToast('Could not delete superlative category.', 'error');
+        }
+        return;
+      }
 
       const reportBtn = e.target.closest('[data-action="report-superlative"]');
       if (reportBtn) {
@@ -68,14 +100,17 @@ export function initSuperlatives() {
         try {
           const { initFirebase } = await import('../../config/firebase.js');
           const fb = await initFirebase();
-          const { doc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
-          const updatePayload = {};
-          updatePayload[`reports.${user.uid}`] = {
-            reason: safeReason,
-            details,
-            createdAt: serverTimestamp()
-          };
-          await updateDoc(doc(fb.db, 'superlatives', superlativeId), updatePayload);
+          const { doc, writeBatch, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+          const batch = writeBatch(fb.db);
+          batch.update(doc(fb.db, 'superlatives', superlativeId), {
+            [`reports.${user.uid}`]: { reason: safeReason, details, createdAt: serverTimestamp() }
+          });
+          const classId = (store.get('currentClassId') || '').slice(0, 30);
+          batch.set(doc(fb.db, 'reportQueue', `superlative_${superlativeId}_${user.uid}`), {
+            kind: 'superlative', classId, targetId: superlativeId.slice(0, 100), targetPath: `superlatives/${superlativeId}`,
+            reporterUid: user.uid, reason: safeReason, details, createdAt: serverTimestamp()
+          });
+          await batch.commit();
           showToast('Thank you. Report sent to administrator for review.', 'info');
           render();
         } catch (err) {

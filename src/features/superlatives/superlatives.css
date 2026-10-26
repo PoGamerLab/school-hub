@@ -40,6 +40,51 @@
   margin-bottom: 8px;
 }
 
+.superlative-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-delete-superlative {
+  background: transparent;
+  border: 1px solid var(--line);
+  font-size: 13px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #b91c1c;
+  transition: all 0.15s ease;
+}
+
+.btn-delete-superlative:hover {
+  background: #b91c1c;
+  color: #fff;
+  border-color: #b91c1c;
+}
+
+.btn-flag {
+  background: transparent;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #6b7268;
+  transition: all 0.15s ease;
+}
+
+.btn-flag:hover {
+  background: var(--paper-dim);
+  color: var(--ink);
+}
+
+.btn-flag.user-reported {
+  color: var(--red);
+  border-color: var(--red);
+  background: rgba(220, 53, 69, 0.08);
+}
+
 .superlative-icon {
   font-size: 32px;
   text-align: center;

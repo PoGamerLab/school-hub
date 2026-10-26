@@ -1,6 +1,6 @@
 import { escapeHtml, escapeAttr } from '../../core/utils/escapeHtml.js';
 
-export function renderSuperlativeCard(sup, currentUid = null) {
+export function renderSuperlativeCard(sup, currentUid = null, options = {}) {
   const safeIcon = escapeHtml(sup.icon || '🏆');
   const safeTitle = escapeHtml(sup.title);
   const safeId = escapeAttr(sup.id);
@@ -35,14 +35,22 @@ export function renderSuperlativeCard(sup, currentUid = null) {
 
   const reports = sup.reports || {};
   const hasReported = currentUid && reports[currentUid];
+  const canDelete = Boolean(options.isAdmin || (currentUid && sup.createdBy === currentUid));
 
   return `
     <div class="superlative-card" data-id="${safeId}">
       <div class="superlative-header">
         <div class="superlative-icon">${safeIcon}</div>
-        <button class="btn-flag ${hasReported ? 'user-reported' : ''}" data-action="report-superlative" data-id="${safeId}" title="${hasReported ? 'Flagged for review' : 'Report category'}">
-          ${hasReported ? '🚩 Flagged' : '🚩'}
-        </button>
+        <div class="superlative-header-actions">
+          ${canDelete ? `
+            <button type="button" class="btn-delete-superlative" data-action="delete-superlative" data-id="${safeId}" data-creator="${escapeAttr(sup.createdBy || '')}" title="Delete category">
+              🗑️
+            </button>
+          ` : ''}
+          <button type="button" class="btn-flag ${hasReported ? 'user-reported' : ''}" data-action="report-superlative" data-id="${safeId}" title="${hasReported ? 'Flagged for review' : 'Report category'}">
+            ${hasReported ? '🚩 Flagged' : '🚩'}
+          </button>
+        </div>
       </div>
       <div class="superlative-title">${safeTitle}</div>
       <div class="nominees-list">
