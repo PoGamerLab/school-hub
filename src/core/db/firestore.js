@@ -15,7 +15,7 @@ async function ensureDb() {
 
 function showListError(collectionName, message) {
   const ids = {
-    students: '.grid',
+    students: '#class-students-grid, #hub-students-grid, .grid',
     memories: '#memories-container',
     gallery: '#gallery-container',
     teachers: '#teachers-container',

@@ -182,10 +182,15 @@ async function handleSaveUploadedPhoto() {
     }
 
     const fb = await initFirebase();
-    const { doc, writeBatch, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+    const { doc, writeBatch, serverTimestamp, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
     const batch = writeBatch(fb.db);
     batch.set(doc(fb.db, 'avatars', user.uid), { photo: largeJpeg, ownerUid: user.uid, updatedAt: serverTimestamp() });
-    batch.update(doc(fb.db, 'students', user.uid), { photoSource: 'upload', photoThumb: thumbJpeg, photoUpdatedAt: serverTimestamp() });
+    batch.update(doc(fb.db, 'students', user.uid), {
+      photoSource: 'upload',
+      photoThumb: thumbJpeg,
+      googlePhotoUrl: '',
+      photoUpdatedAt: serverTimestamp()
+    });
     await batch.commit();
 
     updateLocalStudentPhoto('upload', thumbJpeg, null);
@@ -193,8 +198,22 @@ async function handleSaveUploadedPhoto() {
     document.getElementById('photo-upload-modal')?.classList.add('hidden');
   } catch (err) {
     console.error('Save photo error:', err);
-    const msg = err?.message || '';
-    showToast(msg.includes('permission-denied') ? 'You can only update your profile picture once every hour.' : 'Failed to save photo.', 'error');
+    let isRateLimited = false;
+    try {
+      if (err?.code === 'permission-denied') {
+        const fb = await initFirebase();
+        const { doc, getDoc } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
+        const avSnap = await getDoc(doc(fb.db, 'avatars', user.uid));
+        if (avSnap.exists()) {
+          const upAt = avSnap.data()?.updatedAt?.toDate?.() || new Date(avSnap.data()?.updatedAt);
+          if (Date.now() - upAt.getTime() < 3600000) {
+            isRateLimited = true;
+          }
+        }
+      }
+    } catch (_) {}
+
+    showToast(isRateLimited ? 'You can only update your profile picture once every hour.' : 'Could not save photo. Try again.', 'error');
   } finally {
     if (saveBtn) saveBtn.disabled = false;
   }

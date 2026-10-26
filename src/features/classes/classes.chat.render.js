@@ -26,10 +26,13 @@ export function renderChatMessage(msg, currentUid, isAdmin, studentProfile = nul
     alt: msg.authorName || 'Student'
   });
 
+  const isMsgAdmin = msg.authorRole === 'admin';
+  const adminBadgeHtml = isMsgAdmin ? '<span class="tag tag-gold">🛡️ Admin</span>' : '';
+
   // Safe house rendering
   const house = studentProfile?.house || 'Unity';
   const houseIcons = { Unity: '🔵', Faith: '🔴', Discipline: '🟠', Tolerance: '🟡' };
-  const houseIcon = houseIcons[house] || '🔵';
+  const houseIcon = isMsgAdmin ? '🛡️' : (houseIcons[house] || '🔵');
 
   if (isFlagged && !isAdmin) {
     return `
@@ -37,7 +40,7 @@ export function renderChatMessage(msg, currentUid, isAdmin, studentProfile = nul
         <div class="class-chat-avatar">${avatarHtml}</div>
         <div class="class-chat-body">
           <div class="class-chat-meta">
-            <span>${houseIcon} ${safeAuthor}</span> &middot;
+            <span>${houseIcon} ${safeAuthor} ${adminBadgeHtml}</span> &middot;
             <span>${escapeHtml(timeStr)}</span>
           </div>
           <div class="class-chat-bubble flagged-bubble">
@@ -53,7 +56,7 @@ export function renderChatMessage(msg, currentUid, isAdmin, studentProfile = nul
       <div class="class-chat-avatar">${avatarHtml}</div>
       <div class="class-chat-body">
         <div class="class-chat-meta">
-          <span>${houseIcon} ${safeAuthor}</span> &middot;
+          <span>${houseIcon} ${safeAuthor} ${adminBadgeHtml}</span> &middot;
           <span>${escapeHtml(timeStr)}</span>
           ${isAdmin && reportsCount > 0 ? `<span class="report-badge">🚩 ${reportsCount} reports</span>` : ''}
         </div>

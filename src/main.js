@@ -83,8 +83,9 @@ async function boot() {
   document.getElementById('hero-about-btn')
     ?.addEventListener('click', () => router.navigate('school'));
 
-  document.getElementById('revoked-signout-btn')?.addEventListener('click', () => {
-    authService.signOut();
+  document.getElementById('revoked-signout-btn')?.addEventListener('click', async () => {
+    await authService.signOut();
+    window.location.hash = '#home';
   });
   document.getElementById('loading-failed-retry-btn')?.addEventListener('click', () => {
     window.location.reload();

@@ -7,6 +7,7 @@ import { showToast } from '../../components/toast/toast.js';
 import { subscribeClassCollection, unsubscribeCollection, deleteDocument, updateDocument, runBatchWrite } from '../../core/db/firestore.js';
 import { openProfileModal, initProfileForm } from './students.modal.js';
 import { openPhotoUploadModal } from '../profile/photoUpload.modal.js';
+import { fetchProfile, setCachedProfile, clearProfileCache, getCachedProfile } from './students.cache.js';
 
 export function initStudents() {
   const gridContainer = document.querySelector('.grid');
@@ -20,6 +21,7 @@ export function initStudents() {
   const loadMoreBtn = document.getElementById('students-load-more-btn');
 
   let activeSub = null;
+  let profileToken = 0;
 
   function getFilteredStudents() {
     const students = store.get('students') || [];
@@ -86,38 +88,55 @@ export function initStudents() {
   }
 
   function updateProfile(studentId) {
-    const students = store.get('students') || [];
     const user = authService.getCurrentUser();
-    const isViewingOwn = !studentId || (user && (studentId === user.uid || studentId === 'my-profile'));
-
-    let current = null;
-    if (studentId && studentId !== 'my-profile') {
-      current = students.find(s => (s.id || s.uid) === studentId);
-    } else if (user) {
-      current = students.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
-    }
-
-    if (!current && isViewingOwn) {
-      // Current user has not created a profile yet (e.g. admin who skipped onboarding)
-      store.set('currentStudentId', user?.uid || null, false);
-      renderProfileView({ isUncreated: true }, user ? user.uid : null);
+    const wantedId = (!studentId || studentId === 'my-profile') ? user?.uid : studentId;
+    if (!wantedId) {
+      renderProfileView({ isLoading: true });
       return;
     }
 
-    if (!current && students.length > 0) {
-      current = students[0];
+    const list = store.get('students') || [];
+    const hit = list.find(s => (s.id || s.uid) === wantedId);
+    if (hit) {
+      setCachedProfile(wantedId, hit);
+      show(hit);
+      return;
     }
 
-    if (current) {
-      const id = current.id || current.uid;
+    const cached = getCachedProfile(wantedId);
+    if (cached) {
+      show(cached);
+      return;
+    }
+
+    const token = ++profileToken;
+    renderProfileView({ isLoading: true });
+
+    fetchProfile(wantedId).then(p => {
+      if (token !== profileToken) return;
+      if (p) {
+        show(p);
+      } else if (user && wantedId === user.uid) {
+        renderProfileView({ isUncreated: true }, user.uid);
+      } else {
+        renderProfileView({ notFound: true });
+      }
+    }).catch(() => {
+      if (token === profileToken) renderProfileView({ loadFailed: true });
+    });
+
+    function show(p) {
+      const id = p.id || wantedId;
       store.set('currentStudentId', id, false);
       if (studentSelect) studentSelect.value = id;
-      renderProfileView(current, user ? user.uid : null);
-    } else {
-      store.set('currentStudentId', null, false);
-      renderProfileView(null);
+      renderProfileView(p, user ? user.uid : null);
     }
   }
+
+  window._reloadProfile = (id) => {
+    clearProfileCache(id);
+    updateProfile(id);
+  };
 
   // Profile action buttons (Edit Profile, Change Photo, Report Photo, Create Profile, or Admin Delete)
   document.querySelector('#profile')?.addEventListener('click', async (e) => {
@@ -129,7 +148,7 @@ export function initStudents() {
 
     const user = authService.getCurrentUser();
     const students = store.get('students') || [];
-    const myProfile = students.find(s => (s.id || s.uid) === user?.uid || s.ownerUid === user?.uid);
+    const myProfile = getCachedProfile(user?.uid) || students.find(s => (s.id || s.uid) === user?.uid || s.ownerUid === user?.uid);
 
     if (editBtn || createBtn) {
       openProfileModal(myProfile);
@@ -157,11 +176,7 @@ export function initStudents() {
         const fb = await initFirebase();
         const { doc, updateDoc, serverTimestamp } = await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
         const reportUpdate = {};
-        reportUpdate[`photoReports.${user.uid}`] = {
-          reason: safeReason,
-          details,
-          createdAt: serverTimestamp()
-        };
+        reportUpdate[`photoReports.${user.uid}`] = { reason: safeReason, details, createdAt: serverTimestamp() };
         await updateDoc(doc(fb.db, 'students', targetUid), reportUpdate);
         showToast('Photo reported to school administration.', 'info');
       } catch (err) {
@@ -186,6 +201,7 @@ export function initStudents() {
           { type: 'set', collection: 'users', id: targetUid, data: { status: 'needs_profile', profileDeletedReason: reason.trim(), profileDeletedAt: Date.now() }, merge: true },
           { type: 'set', collection: 'adminLog', id: `log_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, data: { action: 'DELETE_PROFILE', actorUid: user.uid, targetUid, reason: reason.trim() }, withTimestamp: true, timestampField: 'createdAt' }
         ]);
+        clearProfileCache(targetUid);
         showToast('Student profile deleted atomically.', 'success');
         router.navigate('class');
       } catch (err) {

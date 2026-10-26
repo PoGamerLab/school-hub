@@ -68,24 +68,83 @@ export function renderProfileView(student, currentUid = null) {
   const isAdmin = !!store.get('isAdmin');
   const deletedReason = user?.profileDeletedReason;
 
+  if (student?.isLoading) {
+    if (profileTag) profileTag.textContent = 'LOADING';
+    if (profileContainer) {
+      profileContainer.innerHTML = `
+        <div class="empty-state full-width-empty">
+          <div class="empty-state-icon"><div class="app-loading-spinner"></div></div>
+          <div class="empty-state-title">Loading Profile…</div>
+          <div class="empty-state-desc">Fetching student details from the school database.</div>
+        </div>
+      `;
+    }
+    return;
+  }
+
+  if (student?.notFound) {
+    if (profileTag) profileTag.textContent = 'NOT FOUND';
+    if (profileContainer) {
+      profileContainer.innerHTML = `
+        <div class="empty-state full-width-empty">
+          <div class="empty-state-icon">🔍</div>
+          <div class="empty-state-title">Profile Not Found</div>
+          <div class="empty-state-desc">This profile does not exist or may have been deleted.</div>
+          <div class="profile-create-action">
+            <button class="btn btn-outline" id="profile-not-found-back-btn">Back to Class</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('profile-not-found-back-btn')?.addEventListener('click', () => {
+        router.navigate('class');
+      });
+    }
+    return;
+  }
+
+  if (student?.loadFailed) {
+    if (profileTag) profileTag.textContent = 'ERROR';
+    if (profileContainer) {
+      profileContainer.innerHTML = `
+        <div class="empty-state full-width-empty">
+          <div class="empty-state-icon">⚠️</div>
+          <div class="empty-state-title">Could Not Load Profile</div>
+          <div class="empty-state-desc">Check your network connection and try again.</div>
+          <div class="profile-create-action">
+            <button class="btn btn-primary" id="profile-retry-load-btn">Retry</button>
+          </div>
+        </div>
+      `;
+      document.getElementById('profile-retry-load-btn')?.addEventListener('click', () => {
+        if (typeof window._reloadProfile === 'function') {
+          window._reloadProfile(store.get('currentStudentId'));
+        }
+      });
+    }
+    return;
+  }
+
   if (!student || student.isUncreated) {
     if (profileTag) profileTag.textContent = 'NO PROFILE';
+    const isOwn = user && (!currentUid || currentUid === user.uid);
     if (profileContainer) {
       profileContainer.innerHTML = `
         <div class="empty-state full-width-empty">
           <div class="empty-state-icon">👤</div>
-          ${deletedReason ? `
+          ${deletedReason && isOwn ? `
             <div class="notice-box notice-warning">
               <strong>⚠️ Notice from Administrator:</strong><br>
               Your previous profile was removed. <em>"${escapeHtml(deletedReason)}"</em><br>
               Please create an updated profile following school guidelines.
             </div>
           ` : ''}
-          <div class="empty-state-title">${deletedReason ? 'Re-create Your Student Profile' : "You Haven't Created Your Profile Yet"}</div>
-          <div class="empty-state-desc">Create your profile now to share your details, house, and interests with the class.</div>
-          <div class="profile-create-action">
-            <button class="btn btn-primary" id="create-my-profile-btn">+ Create My Profile</button>
-          </div>
+          <div class="empty-state-title">${deletedReason && isOwn ? 'Re-create Your Student Profile' : "You Haven't Created Your Profile Yet"}</div>
+          <div class="empty-state-desc">${isOwn ? 'Create your profile now to share your details, house, and interests with the class.' : 'This student has not created their profile yet.'}</div>
+          ${isOwn ? `
+            <div class="profile-create-action">
+              <button class="btn btn-primary" id="create-my-profile-btn">+ Create My Profile</button>
+            </div>
+          ` : ''}
         </div>
       `;
     }

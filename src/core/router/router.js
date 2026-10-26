@@ -126,6 +126,11 @@ class Router {
       return this._intendedDestination || 'home';
     }
 
+    if (screenId === 'revoked') {
+      const u = store.get('user');
+      if (!u || !(u.banned || u.status === 'revoked')) return 'home';
+    }
+
     const user = store.get('user');
     const isAdmin = store.get('isAdmin');
 

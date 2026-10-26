@@ -105,7 +105,11 @@ service cloud.firestore {
            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
            existsAfter(/databases/$(database)/documents/students/$(uid)) &&
            getAfter(/databases/$(database)/documents/students/$(uid)).data.ownerUid == uid &&
-           getAfter(/databases/$(database)/documents/students/$(uid)).data.verified == true)
+           getAfter(/databases/$(database)/documents/students/$(uid)).data.verified == true) ||
+          // 5. Dismiss own moderation notice
+          (resource.data.status == 'active' &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoRemovedNotice']) &&
+           (!('photoRemovedNotice' in request.resource.data) || request.resource.data.photoRemovedNotice == null))
         )
       );
 
@@ -207,9 +211,13 @@ service cloud.firestore {
     match /classChats/{classId}/messages/{msgId} {
       allow read: if isActive() && inMyClass(classId);
       allow create: if isActive() && inMyClass(classId) && siteWritable() &&
-        request.resource.data.keys().hasOnly(['authorUid', 'authorName', 'classId', 'text', 'reports', 'createdAt']) &&
+        request.resource.data.keys().hasOnly(['authorUid', 'authorName', 'classId', 'text', 'reports', 'createdAt', 'authorRole']) &&
         request.resource.data.authorUid == request.auth.uid &&
-        request.resource.data.authorName == get(/databases/$(database)/documents/students/$(request.auth.uid)).data.name &&
+        request.resource.data.authorName is string &&
+        (isAdmin()
+          ? request.resource.data.authorName == 'School Administration'
+          : request.resource.data.authorName == get(/databases/$(database)/documents/students/$(request.auth.uid)).data.name) &&
+        (!('authorRole' in request.resource.data) || (request.resource.data.authorRole == 'admin' && isAdmin())) &&
         request.resource.data.classId == classId &&
         request.resource.data.text is string && request.resource.data.text.size() > 0 && request.resource.data.text.size() <= 500 &&
         request.resource.data.reports == {} &&
@@ -259,6 +267,7 @@ service cloud.firestore {
           'photoSource', 'photoThumb', 'googlePhotoUrl', 'photoReports', 'photoUpdatedAt'
         ]) &&
         request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
+        !request.resource.data.name.lower().matches('.*(school administration|administrator|principal).*') &&
         (!('roll' in request.resource.data) || (request.resource.data.roll is string && request.resource.data.roll.matches('^[0-9]{1,10}$'))) &&
         request.resource.data.house in ['Unity', 'Faith', 'Discipline', 'Tolerance'] &&
         request.resource.data.group in ['Pre-Medical', 'Pre-Engineering', 'Computer Science', 'Humanities'] &&
@@ -313,6 +322,7 @@ service cloud.firestore {
             'photoSource', 'photoThumb', 'googlePhotoUrl', 'photoReports', 'photoUpdatedAt'
           ]) &&
           request.resource.data.name is string && request.resource.data.name.size() > 0 && request.resource.data.name.size() <= 80 &&
+        !request.resource.data.name.lower().matches('.*(school administration|administrator|principal).*') &&
           (!('roll' in request.resource.data) || (request.resource.data.roll is string && request.resource.data.roll.matches('^[0-9]{1,10}$'))) &&
           request.resource.data.house in ['Unity', 'Faith', 'Discipline', 'Tolerance'] &&
           request.resource.data.group in ['Pre-Medical', 'Pre-Engineering', 'Computer Science', 'Humanities'] &&

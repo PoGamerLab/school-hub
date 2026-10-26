@@ -4,6 +4,7 @@ import { router } from '../../core/router/router.js';
 import { showToast } from '../../components/toast/toast.js';
 import { extractInitials } from '../../core/utils/ids.js';
 import { updateDocument, setDocument, getDocument } from '../../core/db/firestore.js';
+import { clearProfileCache } from './students.cache.js';
 
 export function openProfileModal(existingProfile = null) {
   const user = authService.getCurrentUser();
@@ -156,7 +157,8 @@ export function initProfileForm() {
     payload.contact  = (showContact  && contact)  ? contact  : '';
 
     const existingStudents = store.get('students') || [];
-    const existingRecord = existingStudents.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
+    const existingRecord = existingStudents.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid)
+                        || await getDocument('students', user.uid);
     const isExisting = !!existingRecord;
 
     if (isExisting) {
@@ -169,13 +171,13 @@ export function initProfileForm() {
       payload.photoSource = prevSource;
 
       // When photo source is 'upload', keep thumb but clear google URL (rule: googlePhotoUrl==''
-      // is allowed when photoSource!='google'). When source is 'google', keep google URL but
-      // clear thumb. This ensures switching directions is always valid.
+      // is allowed when photoSource!='google'). When source is 'google', keep google URL and
+      // also keep any previously uploaded thumb so it isn't wiped on profile edits.
       if (prevSource === 'upload') {
         payload.photoThumb     = existingRecord.photoThumb || '';
         payload.googlePhotoUrl = '';                           // clear old google URL
       } else if (prevSource === 'google') {
-        payload.photoThumb     = '';                           // clear old thumb
+        payload.photoThumb     = existingRecord.photoThumb || '';
         payload.googlePhotoUrl = existingRecord.googlePhotoUrl || '';
       } else {
         payload.photoThumb     = '';
@@ -192,10 +194,12 @@ export function initProfileForm() {
     try {
       if (isExisting) {
         await updateDocument('students', user.uid, payload);
+        clearProfileCache(user.uid);
         showToast('Profile updated successfully!', 'success');
       } else {
         // Student doc must be at students/{uid} — use setDocument with uid as key
         await setDocument('students', user.uid, { ...payload, createdAt: null }, true, 'createdAt');
+        clearProfileCache(user.uid);
         showToast(`Profile published for ${name}!`, 'success');
       }
 

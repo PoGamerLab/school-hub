@@ -158,9 +158,9 @@ function attachChatEvents(classId) {
     if (!user) return showToast('Please sign in to send messages.', 'error');
     if (checkIsMuted(user)) return showToast('You are currently muted and cannot send messages.', 'error');
 
-    const students = store.get('students') || [];
-    const studentProfile = students.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
-    let authorName = studentProfile?.name ? studentProfile.name.slice(0, 80) : '';
+    const isAdmin = !!store.get('isAdmin');
+    let authorName = isAdmin ? 'School Administration' : '';
+    const extra = isAdmin ? { authorRole: 'admin' } : {};
 
     const sendBtn = document.getElementById('class-chat-send-btn');
     if (sendBtn) sendBtn.disabled = true;
@@ -170,25 +170,31 @@ function attachChatEvents(classId) {
       const { doc, getDoc, writeBatch, serverTimestamp, collection } =
         await import('https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js');
 
-      if (!authorName) {
-        try {
-          const sDoc = await getDoc(doc(fb.db, 'students', user.uid));
-          if (sDoc.exists() && sDoc.data()?.name) {
-            authorName = sDoc.data().name.slice(0, 80);
+      if (!isAdmin) {
+        const students = store.get('students') || [];
+        const studentProfile = students.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid);
+        if (studentProfile?.name) {
+          authorName = studentProfile.name.slice(0, 80);
+        } else {
+          try {
+            const sDoc = await getDoc(doc(fb.db, 'students', user.uid));
+            if (sDoc.exists() && sDoc.data()?.name) {
+              authorName = sDoc.data().name.slice(0, 80);
+            }
+          } catch (fetchErr) {
+            console.warn('Could not fetch student doc for author name:', fetchErr);
           }
-        } catch (fetchErr) {
-          console.warn('Could not fetch student doc for author name:', fetchErr);
         }
-      }
-      if (!authorName) {
-        authorName = (user.displayName || 'Student').slice(0, 80);
+        if (!authorName) {
+          authorName = (user.displayName || 'Student').slice(0, 80);
+        }
       }
 
       const batch = writeBatch(fb.db);
       const newMsgRef = doc(collection(fb.db, 'classChats', classId, 'messages'));
       const chatStateRef = doc(fb.db, 'chatState', user.uid);
 
-      batch.set(newMsgRef, { authorUid: user.uid, authorName, classId, text: text.slice(0, 500), reports: {}, createdAt: serverTimestamp() });
+      batch.set(newMsgRef, { authorUid: user.uid, authorName, classId, text: text.slice(0, 500), reports: {}, createdAt: serverTimestamp(), ...extra });
       batch.set(chatStateRef, { lastMessageAt: serverTimestamp(), lastMessageId: newMsgRef.id });
 
       await batch.commit();
@@ -196,7 +202,7 @@ function attachChatEvents(classId) {
     } catch (err) {
       console.error('Send message error:', err);
       const errMsg = err?.message || '';
-      showToast(errMsg.includes('permission-denied') || errMsg.includes('PERMISSION_DENIED') ? 'Message blocked. Please wait 5s or ensure you are in this class.' : 'Failed to send message.', 'error');
+      showToast(errMsg.includes('permission-denied') || errMsg.includes('PERMISSION_DENIED') ? 'Message blocked (muted, banned, or sending too fast).' : 'Failed to send message.', 'error');
     } finally {
       if (sendBtn) sendBtn.disabled = false;
     }

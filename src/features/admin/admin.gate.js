@@ -78,6 +78,12 @@ function attachClassManagerEvents(container) {
     }
 
     try {
+      if (await getDocument('classes', id)) {
+        showToast(`Class ${id} already exists.`, 'error');
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.textContent = '+ Create Active Class'; }
+        return;
+      }
+
       await setDocument('classes', id, {
         id,
         name,

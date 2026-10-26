@@ -1,244 +1,270 @@
-School Hub: Build Spec (Security Fixes, Privacy, Profile Pictures, Chat Safety)
-Written for the coding agent. It follows the last build spec and the audit of the latest zip. Do the phases in order. Phase A is urgent.
-1. Rules for the agent
-• Keep the multi-file structure: one folder per feature or component, each code file about 200–300 lines at most.
-• Styles live only in .css files. No inline style attributes, no inline event handlers (no onerror= or onclick= in HTML strings). Attach listeners in JavaScript.
-• Escape every user-controlled value before it goes into HTML.
-• Do one numbered task at a time. Commit after each one and test it before the next.
-• Never put secrets, gate answers or admin UIDs in code or in the repo. The repo is public.
-• Security rules are the real protection. The page only mirrors them. Every new field the page writes needs a matching rule with type and size limits.
-• The page must never write a name, UID or role that belongs to somebody else. Identity fields are checked by the rules against the signed-in user.
-• If this spec and the existing code disagree, follow this spec. If two parts of this spec disagree, stop and report it.
-2. Decisions already made
-Topic
-Decision
-Profile pictures
-Upload (cropped and resized) with an optional Google photo. No paid Storage. Images are stored inside Firestore as small JPEG data.
-Who sees profiles and photos
-Every active member of the whole school sees student profiles and photos, but only what the student chose to share. Birthday and contact appear only when the student turned the show option on.
-Class-private data
-Class chat, class announcements, memories and superlatives stay readable by members of that class only.
-Teachers and gallery
-Readable by active members only (not the public internet).
-Class chat
-Kept, with rate limits, reporting, mute and moderation.
-Admin identity
-Only a document in admins/{uid}, created by hand in the Firebase console.
-3. Phase A: close the admin hole (do this first)
-A1 Admin rule and auto-provisioning
-Problem: the admins/{uid} rule lets any signed-in user write their own admin document, and auth.js creates it automatically. Anyone with a Google account could become admin.
-Required:
-1. admins/{uid}: no client writes at all. Read allowed only for the owner of that UID or for an admin. No listing for normal users.
-2. Delete the code in auth.js that creates admins/{uid} or writes role or status for admins.
-3. Delete the KNOWN_ADMIN_UIDS list from auth.js and the hard-coded UID list from isAdmin() in the rules.
-4. isAdmin() in the rules means one thing only: admins/{uid} exists. Remove the users.role equals admin path too.
-5. The page decides isAdmin only by reading its own admins/{uid} document.
-6. Admins still need a users record with status active. The admin creates it once in the console.
-Test in the Rules Playground: as a random signed-in UID, creating admins/{thatUid} is denied. As an existing admin, reading admins/{adminUid} is allowed. A normal user cannot list admins.
-Manual steps for the site owner after publishing: open the admins collection in the Firebase console and delete any UID that is not yours. Check users for unexpected admins. Change the gate answers if misuse is possible.
-4. Phase B: rules tightening
-B1 Class helper
-inMyClass(classId) must be true only when the user’s classId equals classId and classId is not empty (or the user is admin). Remove the empty-class exception.
-B2 Read scope (follows the decisions)
-Collection
-Who can read
-students, avatars
-Any active member (whole school)
-teachers, gallery
-Any active member. No public read.
-memories, superlatives
-Active members of the same class
-classes/{id}/announcements
-Active members of the same class
-classChats/{id}/messages
-Active members of the same class
-classes (active)
-Any signed-in user (needed for the gate class picker). Remove public read.
-siteConfig
-Any signed-in user
-B3 Identity fields
-For every create, the rules must force these to match the signer: authorUid, ownerUid, createdBy. Any stored display name for the author (authorName) must equal students/{uid}.name, read by the rule. The page must not send a name it made up.
-B4 Student document validation
-On create and on update, the same checks apply:
-• Allowed keys only (hasOnly). Add the new photo keys from section 6.
-• name 1 to 80 characters. roll digits only, up to 10. category must be one of the allowed values. tags up to 100. bio up to 500. favSubject up to 60. favQuote up to 200. funFact up to 200. house and group must be one of the allowed values listed in constants.js. initials up to 4. gradientIndex integer 0 to 7. showBirthday, showContact and showInDirectory are booleans.
-• birthday exists only if showBirthday is true. contact exists only if showContact is true.
-• On update by the owner: ownerUid, classId and verified cannot change. Only admin can change them.
-B5 users.photoURL
-Allow only an empty string, or a string up to 300 characters starting with https://lh3.googleusercontent.com/. Stop using users.photoURL for any display other than the signed-in person’s own account menu.
-B6 Gallery and teachers
-• gallery create: active member, ownerUid equals the signer, caption up to 140, https URL up to 500, createdAt equals request time. Delete by owner or admin.
-• teachers: create, update and delete by admin only, with the existing field limits and an https check on img (up to 300 characters).
-B7 Admin log and admin list
-• adminLog: create only by admin, with actorUid equal to the signer and createdAt equal to request time. No update, no delete. Reads by admin only.
-• admins listing: see A1.
-B8 Reports on memories and superlatives
-The report value written under reports.{uid} must be a small structure: reason from a fixed list, details up to 200 characters. Add limits so the map cannot be filled with large data.
-B9 Tests
-Test
-Expected
-Signed-out read of teachers or gallery
-Denied
-Active member of class A reads memories of class B
-Denied
-Active member of class A reads student profiles of class B
-Allowed
-Create a memory or gallery item with classId empty
-Denied
-Student update with an unknown extra key
-Denied
-Student update with a 5,000 character funFact
-Denied
-Owner changes own verified, classId or ownerUid
-Denied
-users.photoURL set to a non-Google URL
-Denied
-Report with a 5,000 character detail
-Denied
-adminLog update or delete by an admin
-Denied
-5. Phase C: class chat safety and announcements
-C1 Message model and rules
-classChats/{classId}/messages/{id} may contain only: authorUid, authorName, classId, text, reports, createdAt (allowed-keys list).
-• authorUid equals the signer. authorName equals students/{uid}.name (the rule reads it). classId equals the path classId.
-• text 1 to 500 characters. reports starts as an empty map. createdAt equals request time.
-• The page must not send authorName that it built itself from the Google name.
-• Reads: active members of the same class.
-• Delete: the author or admin.
-• Update: only a member adding or removing their own key in reports, with a small reason structure as in B8.
-C2 Rate limit (enforced by the rules)
-Use one small document per user: chatState/{uid} with lastMessageAt.
-• Each message is sent as one batched write: create the message and set chatState/{uid}.lastMessageAt to request time.
-• The rule on the message requires the previous lastMessageAt to be at least 5 seconds before request time, and the after-write lastMessageAt to equal request time (use the before-write and after-write document checks).
-• chatState/{uid}: owner can read and write only the lastMessageAt field, equal to request time. Admin can read.
-• The page shows a short cooldown message if the write is refused.
-C3 Mute
-Add users.mutedUntil (timestamp, optional). Only admin can set it. A message create is denied when mutedUntil is in the future. Show a clear muted notice in the chat box.
-C4 Reading cost
-• Load the newest 50 messages (ordered by createdAt, newest first, reversed for display). A Load older button fetches the next 50 with a cursor.
-• The live listener runs only while the chat tab is open. Stop it when the tab is hidden for 60 seconds and restart it when visible again.
-• Do not use limit(250) any more.
-C5 Reporting and moderation
-• Each message has a Report button (reason list plus optional details).
-• A message with 3 or more reports is hidden on the page for everyone except admin. It is not deleted.
-• Admin Moderation tab gets a Chat Reports list: view the message, delete it, restore it, mute the author, or ban.
-• Every admin action writes an adminLog entry.
-C6 Display and safety
-• Messages are plain text only. No links are made clickable, no images, no HTML.
-• The author’s avatar comes from the shared avatar helper (section 6.5).
-C7 Announcements
-classes/{classId}/announcements: allowed keys only (title, body, authorUid, authorName, createdAt, pinned optional). title up to 100, body up to 1000, authorUid equals the signer, authorName equals the monitor’s student name or the admin label, createdAt equals request time. Only admin or the class monitor creates. Update by admin only. Delete by admin or the author.
-C8 Tests
-Test
-Expected
-Message with authorName of someone else
-Denied
-Message with an extra key
-Denied
-Two messages within 5 seconds
-Second denied
-Message from a muted user
-Denied
-Message from a member of another class
-Denied
-Report the same message twice from one account
-One report only
-Open the chat and count reads
-50 or fewer
-Message with 501 characters
-Denied
-Announcement from a normal member
-Denied
-6. Phase D: profile pictures
-6.1 Storage choice
-Firebase Storage is not used (it needs a paid plan). Images are small JPEG files stored as text (base64 data URLs) in Firestore.
-6.2 Data model
-students/{uid} gets these optional fields:
-• photoSource: none, upload or google
-• photoThumb: a data URL of a 96 by 96 JPEG, up to 8,000 characters, present only when photoSource is upload
-• googlePhotoUrl: an https URL on lh3.googleusercontent.com up to 300 characters, present only when photoSource is google
-• photoReports: map keyed by UID with the small report structure (same limits as B8)
-• photoUpdatedAt: server time
-avatars/{uid} (large image, loaded only when a profile is opened):
-• photo: data URL of a 256 by 256 JPEG, up to 40,000 characters
-• ownerUid, updatedAt
-6.3 Rules
-• avatars/{uid}: read by any active member. Create and update only by the owner. photo starts with the data:image/jpeg;base64, prefix and is at most 40,000 characters. ownerUid equals the signer. updatedAt equals request time. An update is allowed only if at least 1 hour has passed since the previous updatedAt. Delete by the owner or admin.
-• students photo keys: photoThumb only when photoSource is upload, with the same prefix check and 8,000 character limit. googlePhotoUrl only when photoSource is google. photoSource must be one of the three values. When photoSource is upload, the avatars/{uid} document must exist after the write (use the after-write existence check).
-• Test the prefix check with a long string in the Rules Playground. If matching on a long string is rejected or slow, keep only a short prefix test plus the size limit.
-6.4 Client pipeline (shared module, one folder)
-1. File picker accepts image/jpeg, image/png and image/webp. Maximum input size 5 MB. Anything else is refused with a clear message. SVG and GIF are refused.
-2. Decode the file in the browser (respecting camera rotation). If it does not decode as an image, refuse it.
-3. Square crop screen: drag to move, slider to zoom, live preview inside a circle.
-4. Export two JPEG images on a canvas: 256 by 256 and 96 by 96. Start at quality 0.78 for the large one and 0.7 for the small one, and lower the quality step by step until the large file is about 28 KB or less and the small one about 6 KB or less (base64 length must stay under the rule limits). Re-encoding removes camera metadata such as location.
-5. Save with one batched write: set avatars/{uid}, and update students/{uid} with photoSource upload, photoThumb and photoUpdatedAt. If either fails, neither applies.
-6. Remove photo: one batched write that deletes avatars/{uid} and sets photoSource none and removes photoThumb.
-7. Show the one-hour limit message if the write is refused.
-6.5 Google photo option
-• A toggle in My Profile: Use my Google photo. When turned on, show a clear warning that the photo becomes visible to the whole school.
-• On confirm, save photoSource google and googlePhotoUrl (copied from the signed-in user’s Google account, matching the allowed pattern). If an uploaded photo exists, it is kept but not shown until the student switches back.
-• Render the Google image with no referrer. If it fails to load, fall back to the initials avatar.
-6.6 Shared avatar helper
-One function renders every avatar in the app (cards, profile, directory, class hub, account menu, chat, admin lists). Order: uploaded thumbnail, then Google photo, then gradient with initials. It always escapes values, sets alt text, uses lazy loading, and attaches the error fallback through JavaScript (no inline handler). The profile page loads avatars/{uid} for the large image and shows the thumbnail while it loads.
-6.7 Photo moderation
-• A Report photo button on other people’s profiles writes photoReports.{uid}.
-• Three or more reports hide the photo on the page for everyone except admin and the owner.
-• Admin Moderation tab gets a Photo Reports list with Remove photo (batched delete as in 6.4 step 6 plus an adminLog entry), Restore, and Ban.
-• The student sees a short notice when their photo was removed.
-6.8 Cost notes
-• Reads are billed per document, not per byte. The 96 by 96 thumbnail lives inside the student document, so student lists need no extra reads.
-• A page of 30 students downloads roughly 120 to 250 KB of thumbnails. Acceptable. Do not raise the thumbnail size.
-• Changing a photo costs 2 writes.
-6.9 Tests
-Test
-Expected
-Upload a normal phone photo
-Saved, both sizes shown correctly, large file about 30 KB or less
-Upload a 12 MB photo
-Refused before processing
-Upload an SVG, GIF or a renamed text file
-Refused
-Phone photo taken sideways
-Displays upright
-Photo contains location data
-Re-encoded image has none
-Change photo twice within an hour
-Second refused with a clear message
-Student document with photoThumb above 8,000 characters
-Denied
-Student document with photoSource upload but no avatars document
-Denied
-Another user writes someone else’s avatars document
-Denied
-Set googlePhotoUrl to a non-Google URL
-Denied
-Turn on Google photo, then turn it off
-Initials or upload shown correctly
-Three reports on a photo
-Hidden for others, visible to admin and owner
-Admin removes a photo
-Both documents updated, log entry written
-7. Phase E: cleanup and fixes
-1. Atomic admin actions. Approve user, delete profile, move class and reset gate each use one batched write (the page already has a batch helper). The adminLog entry is part of the same batch.
-2. Names. Allow letters from any script (including Urdu), spaces, dots, hyphens and apostrophes, 3 to 60 characters. Apply the same rule in the page and in the security rules (length only in the rules).
-3. No silent defaults. The profile form must not pre-fill category, tags, house, group or favorite subject. Each starts empty and is required.
-4. Gate setup. If gateConfig/questions or gateConfig/answers is missing, show Setup incomplete, please tell the admin. Do not show sample questions.
-5. Failed profile load. After all retries fail, keep the retry banner and show a clear loading-failed screen. Do not show the signed-out landing page while a Google session exists.
-6. Viewport. Change the viewport meta tag to include viewport-fit=cover so the safe-area padding works on phones with a notch.
-7. Inline handlers. Remove the inline onerror handlers in the gallery and teacher templates. Attach the fallback in JavaScript.
-8. Clutter. Remove implemented.txt from the repo, and update the README to match the current architecture.
-8. Order of work
-1. A1 (admin hole). Publish the rules, then do the manual console steps.
-2. B1 to B8 (rules tightening), then the B9 tests in the Rules Playground.
-3. C1 to C7 (chat and announcements), then the C8 tests.
-4. Phase D in this order: rules (6.3), shared avatar helper (6.6), upload pipeline (6.4), Google option (6.5), moderation (6.7), then the 6.9 tests.
-5. Phase E items.
-6. Full re-test with two Google accounts in two classes, then a one-class soft launch.
-9. Definition of done
-• No signed-in user can create or edit an admin record.
-• Signed-out visitors can read nothing except the landing page and sign-in.
-• Every written field has a type and size limit in the rules, and no identity field can be faked.
-• Chat cannot be flooded, every message can be reported, and admin can mute and delete.
-• A student can upload, change, remove, report and hide photos exactly as described, and uploaded photos never exceed the size limits.
-• Every test table above passes.
-• No file is much over 300 lines, there are no inline styles or handlers, and no secrets are in the repo.
+School Hub: Profile, Admin Powers & Speed Fix Plan
+Prepared for the School Hub coding agent · 26 October 2026 · apply in order
+How to use this plan
+• Work top to bottom. Every task has an ID, the files to touch, the exact change and an Acceptance test. A task is not done until its acceptance test passes.
+• Rules ↔ client parity is the most important habit. Earlier rounds broke things by changing only one side. When you change a Firestore rule, grep the client for every write to that path and update it in the same commit. When you change a client payload, check it against the rule.
+• Never write “tested” unless you ran it. After every phase run node --check on all JS, the import/export check, the getElementById check, and the Rules Playground cases in Phase D. If you could not run something (emulator, browser), say so.
+• Escape every user string with escapeHtml / escapeAttr. A variable named safe… must really be escaped.
+• No inline handlers, no style= attributes, keep each file under 300 lines.
+• Editing firestore.rules or firestore.indexes.json does nothing until it is deployed (firebase deploy --only firestore). Pushing to GitHub only publishes the website.
+Phase 0: leftovers from the last review (do first)
+0.1 Google photo → upload is still denied
+File: src/features/profile/photoUpload.modal.js. handleSaveUploadedPhoto leaves googlePhotoUrl set while photoSource becomes 'upload', which the rules reject. Change the student update to:
+batch.update(doc(fb.db, 'students', user.uid), {
+  photoSource: 'upload',
+  photoThumb: thumbJpeg,       // keep the variable name already used there
+  googlePhotoUrl: '',          // NEW
+  photoUpdatedAt: serverTimestamp()
+});
+Also change the catch toast: say “once per hour” only when err.code === 'permission-denied' and the avatars doc was updated less than 1 hour ago; otherwise show “Could not save photo. Try again.”
+Acceptance: use the Google photo, then upload a new photo → succeeds.
+0.2 photoRemovedNotice can never be cleared
+File: firestore.rules (users update, owner group). Add one more || branch inside the existing owner group:
+// 6. Dismiss own moderation notice
+(resource.data.status == 'active' &&
+ request.resource.data.diff(resource.data).affectedKeys().hasOnly(['photoRemovedNotice']) &&
+ request.resource.data.photoRemovedNotice == null)
+auth.js already writes { photoRemovedNotice: null }.
+Acceptance: admin removes a photo → student logs in and sees the toast once → reload → no toast.
+0.3 Sign out on the “Access revoked” screen leaves the screen
+Files: src/main.js, src/core/router/router.js.
+// main.js
+document.getElementById('revoked-signout-btn')?.addEventListener('click', async () => {
+  await authService.signOut();
+  window.location.hash = '#home';
+});
+In _resolveStatusRoute, right after the loading-failed block:
+if (screenId === 'revoked') {
+  const u = store.get('user');
+  if (!u || !(u.banned || u.status === 'revoked')) return 'home';
+}
+Acceptance: a signed-out user on #revoked resolves to home.
+0.4 Creating a class can overwrite an existing class
+File: src/features/admin/admin.gate.js. Before setDocument('classes', id, …):
+if (await getDocument('classes', id)) {
+  showToast(`Class ${id} already exists.`, 'error');
+  /* restore the button text and disabled=false */ return;
+}
+0.5 Editing a profile while on the Google photo wipes the uploaded thumbnail
+File: src/features/students/students.modal.js. In the prevSource === 'google' branch use payload.photoThumb = existingRecord.photoThumb || ''; (the rules allow a thumbnail while photoSource is 'google').
+Phase A: profile page and admin powers
+A1 (HIGH) “You Haven’t Created Your Profile Yet” shown to people who have a profile
+Root cause (reproduced by running the real updateProfile()): students.js looks for a profile only inside store.get('students'). That array holds just the first page of 30 students of the viewer’s own class. If the person is not in it, the screen calls renderProfileView(null) or { isUncreated: true }, and both render the same “create your profile” page.
+#
+Situation
+What the user sees today
+1
+Class has more than 30 students and you sort after #30 by name
+“Haven’t created” + Create button (Create then fails; for an admin it would overwrite the real profile)
+2
+Student list failed to load (composite index not deployed, rules error)
+same
+3
+Page opened before the first snapshot arrives
+same, flashes
+4
+Clicking a classmate or a student of another class who is not in the array
+a different person (students[0]) is shown
+5
+Admin has no class, so the query needs a different index
+list empty → same
+Fix (files: src/features/students/students.js, students.render.js, students.modal.js):
+1. Add a profile cache and a single-document fetch (rules already let any active member read students/{id}). Import getDocument from core/db/firestore.js.
+const profileCache = new Map();
+let profileToken = 0;
+async function fetchProfile(id) {
+  if (!id) return null;
+  if (profileCache.has(id)) return profileCache.get(id);
+  const p = await getDocument('students', id);
+  if (p) profileCache.set(id, p);
+  return p;
+}
+2. Rewrite updateProfile(studentId):
+function updateProfile(studentId) {
+  const user = authService.getCurrentUser();
+  const wantedId = (!studentId || studentId === 'my-profile') ? user?.uid : studentId;
+  if (!wantedId) { renderProfileView({ isLoading: true }); return; }
+  const list = store.get('students') || [];
+  const hit = list.find(s => (s.id || s.uid) === wantedId);
+  if (hit) { profileCache.set(wantedId, hit); show(hit); return; }
+  if (profileCache.has(wantedId)) { show(profileCache.get(wantedId)); return; }
+  const token = ++profileToken;
+  renderProfileView({ isLoading: true });
+  fetchProfile(wantedId).then(p => {
+    if (token !== profileToken) return;                  // user moved on
+    if (p) show(p);
+    else if (user && wantedId === user.uid) renderProfileView({ isUncreated: true }, user.uid);   // ONLY place
+    else renderProfileView({ notFound: true });
+  }).catch(() => { if (token === profileToken) renderProfileView({ loadFailed: true }); });
+  function show(p) {
+    const id = p.id || wantedId;
+    store.set('currentStudentId', id, false);
+    const sel = document.getElementById('profile-student-select'); if (sel) sel.value = id;
+    renderProfileView(p, user ? user.uid : null);
+  }
+}
+Delete the line if (!current && students.length > 0) current = students[0];. It must never exist.
+3. renderProfileView (students.render.js) must handle four extra states with different text: isLoading (small spinner, no buttons), notFound (“This profile does not exist.” + Back button, no Create button), loadFailed (“Could not load this profile.” + Retry), and isUncreated (today’s message; Create button only when the viewer is looking at their own id). Never show Create for null.
+4. students.modal.js (around lines 158–160): do not trust the cached list to decide create-vs-edit:
+const existingRecord = existingStudents.find(s => (s.id || s.uid) === user.uid || s.ownerUid === user.uid)
+                    || await getDocument('students', user.uid);
+5. After saving or deleting a profile call profileCache.delete(uid).
+6. Admin and big classes: add the index in C6 (students: verified ASC, name ASC) and make showListError target #class-students-grid / #hub-students-grid instead of document.querySelector('.grid') (which grabs the first .grid on the page).
+Acceptance: (a) class of 45: student #38 opens My Profile → sees their own profile; (b) the same student opened from another account → correct person; (c) Wi-Fi off → “Could not load”, not “Create”; (d) admin opens a profile of another class → that student, and the Delete button targets that student; (e) a user with no profile still gets “Create”, and Create works.
+A2 (HIGH) Admin cannot send chat messages in any class
+Cause: the message rule requires authorName == students/{adminUid}.name. An admin normally has no student document, so get() errors and the write is denied. The client then falls back to the Google name.
+Rule (classChats/{classId}/messages create): replace the authorName line with
+request.resource.data.authorName is string &&
+(isAdmin()
+  ? request.resource.data.authorName == 'School Administration'
+  : request.resource.data.authorName == get(/databases/$(database)/documents/students/$(request.auth.uid)).data.name) &&
+(!('authorRole' in request.resource.data) || (request.resource.data.authorRole == 'admin' && isAdmin())) &&
+and add 'authorRole' to that rule’s hasOnly([...]) list. Client classes.chat.js send handler:
+const isAdmin = !!store.get('isAdmin');
+let authorName = isAdmin ? 'School Administration' : '';
+const extra = isAdmin ? { authorRole: 'admin' } : {};
+// student path: keep the existing lookup (store list, then getDoc students/uid)
+batch.set(newMsgRef, { authorUid: user.uid, authorName, classId, text: text.slice(0, 500), reports: {}, createdAt: serverTimestamp(), ...extra });
+classes.chat.render.js: show an “Admin” badge when msg.authorRole === 'admin' (never by name). To stop students impersonating the label, add to the students create and owner-update rules: !request.resource.data.name.lower().matches('.*(school administration|administrator|principal).*'). Replace the generic error toast with “Message blocked (muted, banned, or sending too fast).”
+Acceptance: admin opens any class, sends a message, it appears with the Admin badge; a student cannot rename themselves to “School Administration”.
+A3 (HIGH) Admin has no class context, so memories, superlatives and gallery fail or go nowhere
+Cause: currentClassId is '' for admins. The gallery rule needs a non-empty classId → denied. Memories and superlatives are accepted but saved with classId: '', which no student can ever see.
+1. classes.js openClassDetail(classId): if (store.get('isAdmin')) store.set('currentClassId', classId, false); (the memories, superlatives and students screens already subscribe to currentClassId).
+2. Add an admin-only <select id='admin-class-switcher'> (options from store.get('activeClasses') plus “All classes (read only)”) at the top of the memories, superlatives, gallery and profile screens. On change: store.set('currentClassId', value, false). Hide it for non-admins. Reset currentClassId to '' in setUser(null).
+3. For an admin with currentClassId === '', disable the “Add memory / award / photo” buttons with the hint “Pick a class first”.
+4. Gallery payload: classId: store.get('currentClassId') || 'school'.
+Acceptance: admin picks 10-B and adds a memory → a 10-B student sees it; admin adds a gallery photo → succeeds.
+A4 (HIGH) Members tab: Approve and Move class fail, locked-out students cannot be unlocked, HTML injection in search
+Files: admin.members.js, admin.render.js.
+1. Approve (approve-user) writes students/{uid} { verified: true } with merge. For a user with no profile (the usual case) that creates a document without ownerUid; the rule rejects it and the whole batch fails. New logic:
+const stu = await getDocument('students', uid);
+const u = allUsers.find(x => x.id === uid);
+if (!u?.classId) { showToast('Move this user to a class first.', 'error'); return; }
+await runBatchWrite([
+  { type: 'set', collection: 'users', id: uid, data: { status: stu ? 'active' : 'needs_profile', banned: false }, merge: true },
+  ...(stu ? [{ type: 'set', collection: 'students', id: uid, data: { verified: true }, merge: true }] : []),
+  { type: 'set', collection: 'adminLog', id: logId(), data: { action: 'APPROVE_USER', actorUid: adminUid, targetUid: uid }, withTimestamp: true, timestampField: 'createdAt' }
+]);
+Add a confirm() before approve and before unban.
+2. Move class: same pattern. Include the students operation only when await getDocument('students', uid) is truthy.
+3. Reset Gate is hidden for needs_gate, which is exactly the status of students locked out after 5 attempts. Show it for ['needs_gate', 'needs_profile', 'active'] in admin.render.js. For needs_gate only delete gate/{uid} (do not change status).
+4. HTML injection: admin.members.js has its own renderSingleUserRow that puts u.displayName into HTML unescaped (its variables are named safe… but are not escaped). Any active student can set their displayName to markup such as </div><button data-action='approve-user' data-uid='…'>, and the admin’s delegated click handler then acts on it. Delete that function. Export one renderUserRow(u, classes) from admin.render.js (the escaped one) and use it for the first render and for search results. Escape class id / name in the <option> list too.
+5. Cost: stop getDocs(collection('users')) on every open and after every action. Load 50 at a time (orderBy('createdAt','desc'), limit(50) plus “Load more”), search on the server with where('displayName','>=',q), where('displayName','<=', q + String.fromCharCode(0xf8ff)), orderBy('displayName'), and after an action update only that row.
+6. (optional) store email on the user document (rule: email == request.auth.token.email; add it to the create hasOnly list and to an owner-update branch) so the admin can find people by email. Today every row shows “No email”.
+Acceptance: approve a needs_gate user who has a class → becomes needs_profile; unlock a student who failed the gate 5 times; a display name of <b>x</b> renders as plain text in search results.
+A5 (MED) Admins and owners cannot delete or edit gallery items, teachers, memories or superlatives
+The rules already allow it (gallery, memories, superlatives: delete by owner or admin; teachers: admin). The screens simply have no buttons. Client only:
+• Gallery card: a “Delete” button for isAdmin || ownerUid === uid, then confirm(), then deleteDocument('gallery', id). If an admin deletes someone else’s item also call logAdminAction('DELETE_GALLERY', id, caption).
+• Teachers: admin-only “Edit” (reuse the add modal, updateDocument) and “Delete”.
+• Memories and superlatives: “Delete” for the author / creator or an admin, same pattern.
+• Buttons use data-action plus one delegated listener; every dynamic value is escaped.
+Acceptance: admin deletes a gallery photo and a teacher; a student deletes their own photo but not someone else’s.
+A6 (HIGH for cost) Moderation tab reads the whole database and can show a false “all clear”
+Today: chat reports scan every message of every class; photo reports read every student; memory and superlative reports come from a store that is empty unless that screen was opened first.
+Design: a reportQueue collection (one cheap query). Rules:
+match /reportQueue/{id} {
+  allow create: if isActive() && siteWritable() &&
+    request.resource.data.keys().hasOnly(['kind','classId','targetId','targetPath','reporterUid','reason','details','createdAt']) &&
+    request.resource.data.reporterUid == request.auth.uid &&
+    id == request.resource.data.kind + '_' + request.resource.data.targetId + '_' + request.auth.uid &&
+    request.resource.data.kind in ['chat','photo','memory','superlative','gallery'] &&
+    request.resource.data.reason in ['inappropriate','harassment','spam','other'] &&
+    request.resource.data.details is string && request.resource.data.details.size() <= 200 &&
+    request.resource.data.targetId is string && request.resource.data.targetId.size() <= 100 &&
+    request.resource.data.targetPath is string && request.resource.data.targetPath.size() <= 200 &&
+    request.resource.data.classId is string && request.resource.data.classId.size() <= 30 &&
+    request.resource.data.createdAt == request.time;
+  allow read, delete: if isAdmin();
+  allow update: if false;
+}
+Client: every report action becomes one writeBatch = the existing reports.<uid> update (keeps the 3-report auto-hide) + set(reportQueue/<kind>_<targetId>_<uid>).
+Moderation tab: query(reportQueue, orderBy('createdAt','desc'), limit(100)), group by kind + targetId, and fetch the target document only when the admin expands the row. Actions:
+• Dismiss: one batch that deletes the queue entries for that target and clears reports on the target.
+• Delete content.
+• Mute 24h (chat).
+• Remove photo: ONE atomic batch containing the students update, delete avatars/{uid}, the users photoRemovedNotice, and the adminLog entry (today the avatar delete is outside the batch and its error is swallowed).
+• Ban.
+Add “Load more”. Show “No open reports” only after a successful query; show an error state if the query fails.
+Acceptance: as a student report a chat message, a photo, a memory and a superlative → all four appear in the tab using one query; dismiss and delete work; turning the network off shows an error, never “all clear”.
+A7 (MED) No way to assign a class monitor
+monitorUid is only ever '', so only admins can post announcements. In classes.edit.js add a “Class monitor” <select> filled from getDocs(query(collection(db,'students'), where('classId','==',id), limit(100))) (value = ownerUid), saved with updateDocument('classes', id, { monitorUid }) (rules already allow admin), plus logAdminAction('SET_MONITOR', id, uid).
+A8 (MED) Read-only banner and announcement banner may never appear
+initSiteConfig() starts its two listeners at page load, before sign-in. The rules require sign-in, so the listeners fail once and never retry. Start them from store.subscribe('user', u => u ? start() : stop()), keep the unsubscribe functions, and start once per sign-in.
+Phase B: why the site is slow, and the fix
+Measured on the code: 43 JS modules in an 8-level import chain (every level is a network round trip before anything runs), 19 render-blocking CSS files, 3 serial Firebase SDK imports, a serial boot (SDK → auth → users doc → admins doc → classes → router), and every screen loads its data twice.
+B1 (HIGH) Every screen’s data loads twice and the page jumps to the top
+auth.js attaches onSnapshot(users/{uid}). Its first callback fires immediately and calls setUser() again. The router re-runs switchTo() on every setUser(), which re-runs every screen’s onEnter (re-subscribe, re-fetch, syncClasses()) and scrollTo(top). The same happens on every later change of the user document.
+router.js:
+// in init():
+this._routeSig = null;
+store.subscribe('user', (u) => {
+  if (!this.authReady) return;
+  const sig = u ? [u.uid, u.status, u.banned, u.isAdmin, u.classId].join('|') : 'out';
+  if (sig === this._routeSig) return;     // ignore echoes with the same routing data
+  this._routeSig = sig;
+  this.handleHashChange();
+});
+// in onAuthReady(): compute this._routeSig from the current store.get('user') BEFORE the first switchTo
+// in switchTo(): scroll only when the screen really changed
+if (prevScreenId !== screenId) window.scrollTo({ top: 0, behavior: 'smooth' });
+Acceptance: open the class screen: the Network tab shows each Firestore query once; changing mutedUntil in the console does not reload the screen.
+B2 (HIGH) Parallel boot
+• config/firebase.js: const [{ initializeApp }, { getAuth }, { getFirestore }] = await Promise.all([import('…firebase-app.js'), import('…firebase-auth.js'), import('…firebase-firestore.js')]);
+• auth.js _loadProfile: const [userSnap, adminSnap] = await Promise.all([getDoc(userRef), getDoc(adminRef).catch(() => null)]); (create the user document afterwards if it is missing).
+• main.js: remove await syncClasses() before router.onAuthReady(); call it after, without await. Screens that need classes already await syncClasses() in their own onEnter.
+• index.html <head>: <link rel='preconnect' href='https://www.gstatic.com' crossorigin> and modulepreload links for firebase-app.js, firebase-auth.js, firebase-firestore.js (version 10.12.2).
+B3 (HIGH) Bundle for production and stop publishing the whole repo
+Add tools/build.mjs and change .github/workflows/deploy-pages.yml (today it uploads path: '.', so the audit report, spec, rules and .firebaserc are public):
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Build
+        run: |
+          npx --yes esbuild@0.21.5 src/main.js --bundle --minify --format=esm --target=es2022 --external:https://* --outfile=dist/app.js
+          node tools/build.mjs
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: dist }
+tools/build.mjs: read index.html; take the 19 <link rel='stylesheet' href='src/...css'> tags in order, concatenate those files into dist/styles.css, replace the 19 tags with one stylesheet link to styles.css?v=<GITHUB_SHA>, replace the src/main.js script with app.js?v=<GITHUB_SHA>, write dist/index.html, copy images/ and .nojekyll. Verify that the Firebase imports stayed external: grep -c gstatic dist/app.js must be greater than 0 and the file must not contain the SDK source.
+Acceptance: at most 6 requests before first paint (html, css, app.js, fonts, 3 SDK files); the site behaves identically; https://<site>/School_Hub_Audit_Report.md returns 404.
+B4 (HIGH) Never read a whole collection
+Where
+Today
+Change
+classes.js renderHub()
+getDocs(students) (every profile plus an 8 KB thumbnail) on every render, filter click and search keystroke, twice because of B1
+one getCountFromServer(query(students, where('classId','==',c.id))) per class, cached in store 'classCounts' for 5 minutes; filtering and searching only re-render
+classes.directory.js
+getDocs(students)
+pages of 30 + “Load more”; search with a name-prefix range query
+Members and moderation
+see A4 and A6
+
+Rough cost today: 600 students means 600 to 2,400 reads and up to about 5 to 19 MB downloaded per hub open.
+B5 (MED, optional) Persistent Firestore cache
+firebase.js: initializeFirestore(app, { localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }) }). Caution (shared school computers): on sign-out call terminate(db), then clearIndexedDbPersistence(db), then reload; otherwise the next person could read cached data. Do this only after B1 to B4.
+B6 (MED) Chat leaks and glitches
+• setupVisibilityListener adds a visibilitychange listener on every open and never removes it, which creates duplicate Firestore listeners. Keep one handler reference, remove it in cleanupClassChat, and set a streaming flag before the first await.
+• The snapshot handler does box.innerHTML = …, which erases messages loaded with “Load older” and resets the cursor. Keep two arrays (liveDocs, olderDocs), render both, and take the “load older” cursor from the oldest document of the combined list.
+B7 (LOW) Fonts
+Load two font families instead of three (drop IBM Plex Mono unless it is really used) and only the weights that are used. The CSS merge is done in B3.
+Phase C: remaining hardening
+• C1 avatars 1-hour limit bypass (delete, then re-create). In the avatars create rule also require !exists(/databases/$(database)/documents/students/$(uid)) || !('photoUpdatedAt' in get(/databases/$(database)/documents/students/$(uid)).data) || request.time >= get(/databases/$(database)/documents/students/$(uid)).data.photoUpdatedAt + duration.value(1, 'h'). Optional: an admin photo removal sets students.photoLockedUntil (admin-only field) and the rule blocks re-upload until then.
+• C2 rule validation gaps: drafts: validate type and size of all 15 fields. superlatives create: request.resource.data.reports == {} and request.resource.data.nominees.join('|').size() <= 800. Admin writes to students: apply the same field checks as for owners.
+• C3 character sets: photoThumb and avatars.photo must match '^data:image/jpeg;base64,[A-Za-z0-9+/=]+$'; googlePhotoUrl and users.photoURL must match '^https://lh3[.]googleusercontent[.]com/[A-Za-z0-9._~:/?#@!$&()*+,;=%-]*$'.
+• C4 gallery images: any https host is accepted, so viewers’ IP addresses leak to third parties and the image can be swapped later. Decide: allow-list hosts in the rule, or require admin approval (status: 'pending'). At minimum add Report on gallery cards (kind gallery).
+• C5 README: remove claims that are not true (“encrypted”, “immutable audit logging for all admin actions”, the all-students directory being “admin only” is UI-only) and add the deploy steps from Phase D.
+• C6 indexes (firestore.indexes.json): keep students(classId, verified, name) and add students(verified, name); remove the unused messages collection-group and teachers entries.
+Phase D: deploy and verify
+Deploy (the README must say this): firebase deploy --only firestore:rules,firestore:indexes. Indexes take a few minutes to build; until then the student lists show “Could not load data”.
+Run: node --check on every JS file; the import/export check; every getElementById id exists; no safe… variable that is not escaped.
+Rules Playground:
+1. A student edits their bio after a photo change → allow.
+2. An admin creates a chat message as ‘School Administration’ → allow; a student whose name contains that label → deny.
+3. An admin sets reports: {} on a chat message → allow.
+4. A chatState write without lastMessageId → deny.
+5. Two messages in one batch → deny.
+6. The owner clears photoRemovedNotice → allow.
+7. Google photo → upload → allow.
+8. Re-upload within 1 hour after a delete → deny.
+9. reportQueue create with a wrong document id → deny.
+Manual (two student accounts + admin): all five A1 acceptance cases; admin chat in another class; admin approves and unlocks a user; the moderation tab with all four report kinds; the Network tab on the class screen shows no duplicate queries.
