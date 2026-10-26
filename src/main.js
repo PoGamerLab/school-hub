@@ -27,6 +27,7 @@ import { initSuperlatives } from './features/superlatives/superlatives.js';
 import { initMemories } from './features/memories/memories.js';
 import { initGate } from './features/gate/gate.js';
 import { initOnboarding } from './features/onboarding/onboarding.js';
+import { initAdminClassSwitcher } from './components/admin-switcher/adminSwitcher.js';
 
 let adminInitialized = false;
 async function maybeInitAdmin() {
@@ -59,6 +60,7 @@ async function boot() {
   initGate();
   initOnboarding();
   initSiteConfig();
+  initAdminClassSwitcher();
 
   router.init();
 

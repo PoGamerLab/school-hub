@@ -150,65 +150,67 @@ export function renderGateEditor(questions = {}, answers = {}, classes = []) {
   `;
 }
 
+export function renderUserRow(u, classes = []) {
+  const safeUid = escapeAttr(u.id);
+  const safeName = escapeHtml(u.displayName || 'Unnamed User');
+  const safeEmail = escapeHtml(u.email || 'No email');
+  const safeClass = escapeHtml(u.classId || 'None');
+  const isBanned = u.banned === true;
+  const status = isBanned ? 'banned' : (u.status || 'needs_gate');
+
+  const statusBadgeClass = {
+    active: 'tag-active',
+    needs_gate: 'tag-pending',
+    needs_profile: 'tag-pending',
+    revoked: 'tag-danger',
+    banned: 'tag-danger'
+  }[status] || 'tag-pending';
+
+  const classOptions = classes.map(c => 
+    `<option value="${escapeAttr(c.id)}" ${c.id === u.classId ? 'selected' : ''}>${escapeHtml(c.name || c.id)}</option>`
+  ).join('');
+
+  return `
+    <div class="admin-user-row" data-uid="${safeUid}">
+      <div class="admin-user-info">
+        <div class="admin-user-name">${safeName} <span class="tag ${statusBadgeClass}">${escapeHtml(status.toUpperCase())}</span></div>
+        <div class="admin-user-meta">${safeEmail} &middot; Class: <strong>${safeClass}</strong> &middot; UID: <span class="mono">${safeUid.slice(0, 8)}...</span></div>
+      </div>
+      <div class="admin-user-actions">
+        ${status !== 'active' && !isBanned ? `
+          <button class="btn btn-sm btn-restore" data-action="approve-user" data-uid="${safeUid}">Approve</button>
+        ` : ''}
+        ${status === 'active' ? `
+          <button class="btn btn-sm btn-outline-danger" data-action="delete-profile" data-uid="${safeUid}" title="Delete profile and request recreation">Delete Profile</button>
+        ` : ''}
+        ${(status === 'active' || status === 'needs_profile' || status === 'needs_gate') ? `
+          <button class="btn btn-sm btn-outline" data-action="reset-gate" data-uid="${safeUid}" title="Reset gate attempts">Reset Gate</button>
+        ` : ''}
+        <div class="admin-move-class-box">
+          <select class="admin-user-class-select" data-uid="${safeUid}">
+            <option value="">Move Class...</option>
+            ${classOptions}
+          </select>
+        </div>
+        ${!isBanned ? `
+          <button class="btn btn-sm btn-danger" data-action="ban-user" data-uid="${safeUid}">Ban</button>
+        ` : `
+          <button class="btn btn-sm btn-restore" data-action="unban-user" data-uid="${safeUid}">Unban</button>
+        `}
+        ${status !== 'revoked' ? `
+          <button class="btn btn-sm btn-outline-danger" data-action="revoke-user" data-uid="${safeUid}">Revoke</button>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
 export function renderMembersManager(users = [], classes = []) {
   if (users.length === 0) {
     return `<div class="admin-empty-notice">No registered accounts found in the database.</div>`;
   }
 
-  const rowsHtml = users.map(u => {
-    const safeUid = escapeAttr(u.id);
-    const safeName = escapeHtml(u.displayName || 'Unnamed User');
-    const safeEmail = escapeHtml(u.email || 'No email');
-    const safeClass = escapeHtml(u.classId || 'None');
-    const isBanned = u.banned === true;
-    const status = isBanned ? 'banned' : (u.status || 'needs_gate');
-
-    const statusBadgeClass = {
-      active: 'tag-active',
-      needs_gate: 'tag-pending',
-      needs_profile: 'tag-pending',
-      revoked: 'tag-danger',
-      banned: 'tag-danger'
-    }[status] || 'tag-pending';
-
-    const classOptions = classes.map(c => 
-      `<option value="${escapeAttr(c.id)}" ${c.id === u.classId ? 'selected' : ''}>${escapeHtml(c.name || c.id)}</option>`
-    ).join('');
-
-    return `
-      <div class="admin-user-row" data-uid="${safeUid}">
-        <div class="admin-user-info">
-          <div class="admin-user-name">${safeName} <span class="tag ${statusBadgeClass}">${escapeHtml(status.toUpperCase())}</span></div>
-          <div class="admin-user-meta">${safeEmail} &middot; Class: <strong>${safeClass}</strong> &middot; UID: <span class="mono">${safeUid.slice(0, 8)}...</span></div>
-        </div>
-        <div class="admin-user-actions">
-          ${status !== 'active' && !isBanned ? `
-            <button class="btn btn-sm btn-restore" data-action="approve-user" data-uid="${safeUid}">Approve</button>
-          ` : ''}
-          ${status === 'active' ? `
-            <button class="btn btn-sm btn-outline-danger" data-action="delete-profile" data-uid="${safeUid}" title="Delete profile and request recreation">Delete Profile</button>
-          ` : ''}
-          ${(status === 'active' || status === 'needs_profile') ? `
-            <button class="btn btn-sm btn-outline" data-action="reset-gate" data-uid="${safeUid}" title="Reset gate attempts">Reset Gate</button>
-          ` : ''}
-          <div class="admin-move-class-box">
-            <select class="admin-user-class-select" data-uid="${safeUid}">
-              <option value="">Move Class...</option>
-              ${classOptions}
-            </select>
-          </div>
-          ${!isBanned ? `
-            <button class="btn btn-sm btn-danger" data-action="ban-user" data-uid="${safeUid}">Ban</button>
-          ` : `
-            <button class="btn btn-sm btn-restore" data-action="unban-user" data-uid="${safeUid}">Unban</button>
-          `}
-          ${status !== 'revoked' ? `
-            <button class="btn btn-sm btn-outline-danger" data-action="revoke-user" data-uid="${safeUid}">Revoke</button>
-          ` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
+  const rowsHtml = users.map(u => renderUserRow(u, classes)).join('');
 
   return `
     <div class="admin-users-list">

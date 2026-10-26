@@ -214,6 +214,8 @@ class AuthService {
     store.set('isAdmin', !!(userData && userData.isAdmin), false);
     if (userData && userData.classId) {
       store.set('currentClassId', userData.classId, false);
+    } else if (!userData) {
+      store.set('currentClassId', '', false);
     }
     this._updateWriteControlsVisibility();
     // Resolve authReady in case setUser is called from a non-retry path

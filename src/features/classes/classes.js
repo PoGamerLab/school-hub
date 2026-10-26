@@ -121,6 +121,8 @@ export function initClasses() {
     const cls = classes.find(c => c.id === classId);
     if (!cls) return;
 
+    if (store.get('isAdmin')) store.set('currentClassId', classId, false);
+
     selectedClass = cls;
     if (hubView) hubView.classList.add('hidden');
     if (detailView) detailView.classList.remove('hidden');
